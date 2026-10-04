@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# Data and models (too large for GitHub, share via Google Drive)
+data/raw_videos/*
+data/frames/*
+data/annotations/*
+data/samples/*
+!data/**/.gitkeep
+*.mp4
+*.mov
+*.avi
+*.pt
+*.onnx
+runs/
+datasets/
+
+# OS / editor
+.DS_Store
+Thumbs.db

@@ -1,0 +1,42 @@
+# ShelfSense: AI-Based Retail Merchandising Audit
+
+CSE499A Senior Design I, North South University, Fall 2026
+Team: Shafil Ahmed, Sadid Mehal Habib, Syed Ashfaq Shafin, Rutaba Adiba Rahman
+
+ShelfSense takes a walkthrough video of store shelves and produces an audit report:
+out-of-stock gaps, share of shelf, planogram compliance, and price tag / POSM checks.
+
+## Pipeline
+1. **Extraction** (`src/extraction`): sample frames, drop blurry and duplicate frames
+2. **Detection** (`src/detection`): YOLO nano model finds products and empty gaps
+3. **VLM** (`src/vlm`): small vision-language model identifies brands, reads tags
+4. **Rules** (`src/rules`): compare results against planogram / KPIs
+5. **Report** (`src/report`): generate the audit report
+
+## Where things run
+- Laptop (CPU): coding, frame extraction, rules, report, demo app
+- Google Colab / Kaggle (free GPU): YOLO training and VLM inference (`notebooks/`)
+
+## Setup (Windows)
+```
+python -m venv .venv
+.venv\Scripts\activate
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+pip install -r requirements.txt
+python scripts/check_env.py
+```
+
+## Data
+Large files (videos, frames, datasets) are not stored in Git. Keep them in
+`data/` locally and share through Google Drive. SKU-110K is downloaded directly
+inside Colab/Kaggle for training.
+
+## Sprints
+| Sprint | Focus |
+|---|---|
+| 1 | Setup and problem definition |
+| 2 | Data and keyframe extraction |
+| 3 | Baseline VLM |
+| 4 | Product detection |
+| 5 | Integration and rule engine |
+| 6 | Evaluation and demo |

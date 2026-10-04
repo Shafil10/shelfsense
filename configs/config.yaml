@@ -1,0 +1,27 @@
+# ShelfSense configuration, tuned for an 8 GB RAM, CPU-only laptop
+
+extraction:
+  sample_fps: 1            # frames sampled per second of video
+  resize_width: 1280       # downscale frames to save memory
+  blur_threshold: 100.0    # Laplacian variance below this = blurry, dropped
+  hash_distance: 6         # perceptual-hash distance below this = duplicate, dropped
+
+detection:
+  model: yolov8n.pt        # nano model: small enough for CPU inference
+  conf_threshold: 0.25
+  img_size: 640
+
+vlm:
+  model: Qwen/Qwen2-VL-2B-Instruct   # small VLM, run on Colab/Kaggle GPU
+  max_frames: 8
+
+categories:                # product categories in scope
+  - soaps_and_detergents
+  - biscuits_and_snacks
+  - beverages
+
+kpis:
+  - out_of_stock
+  - share_of_shelf
+  - planogram_compliance
+  - price_tag_posm
