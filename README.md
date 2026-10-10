@@ -24,7 +24,16 @@ python -m venv .venv
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 pip install -r requirements.txt
 python scripts/check_env.py
+python -m pytest
 ```
+
+## Extract keyframes
+Put videos in `data/raw_videos/`, then:
+```
+python -m src.extraction.extract_frames --video data/raw_videos
+```
+Kept frames, `frames_log.csv` and `stats.json` are written to `data/frames/<video_name>/`.
+Use `--fps 4` for very short clips.
 
 ## Data
 Large files (videos, frames, datasets) are not stored in Git. Keep them in
