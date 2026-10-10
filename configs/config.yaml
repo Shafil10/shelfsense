@@ -2,8 +2,9 @@
 
 extraction:
   sample_fps: 1            # frames sampled per second of video
-  resize_width: 1280       # downscale frames to save memory
-  blur_threshold: 100.0    # Laplacian variance below this = blurry, dropped
+  resize_width: 1280       # downscale wider frames to this width (never upscales)
+  blur_max: 0.5            # blur effect score (0 sharp - 1 blurred) above this = dropped
+                           # real fridge frames: 0.24-0.39, artificially blurred: 0.56-0.72
   hash_distance: 6         # perceptual-hash distance below this = duplicate, dropped
 
 detection:
