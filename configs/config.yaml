@@ -14,7 +14,10 @@ detection:
 
 vlm:
   model: Qwen/Qwen2-VL-2B-Instruct   # small VLM, run on Colab/Kaggle GPU
-  max_frames: 8
+  max_frames: 8            # keyframes per clip in video mode
+  max_new_tokens: 256
+  results_dir: data/results          # put the Kaggle vlm_results.jsonl here
+  ground_truth: data/annotations/vlm_ground_truth.json
 
 categories:                # product categories in scope
   - soaps_and_detergents

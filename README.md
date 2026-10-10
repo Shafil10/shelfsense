@@ -35,6 +35,13 @@ python -m src.extraction.extract_frames --video data/raw_videos
 Kept frames, `frames_log.csv` and `stats.json` are written to `data/frames/<video_name>/`.
 Use `--fps 4` for very short clips.
 
+## Baseline VLM (Sprint 3)
+Run `notebooks/02_baseline_vlm.ipynb` on Kaggle (steps are in the notebook), save its output as
+`data/results/vlm_results.jsonl`, fill in `data/annotations/vlm_ground_truth.json`, then:
+```
+python -m src.vlm.evaluate
+```
+
 ## Data
 Large files (videos, frames, datasets) are not stored in Git. Keep them in
 `data/` locally and share through Google Drive. SKU-110K is downloaded directly
