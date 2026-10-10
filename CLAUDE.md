@@ -96,7 +96,7 @@ python -m src.vlm.evaluate   # after the Kaggle run
 - `tests/test_vlm_evaluate.py`: 21 tests incl. an end-to-end run on fake answers.
 - Ground truth is a DRAFT: fridge_03 brands unknown (red cans may be Mojo, not Coca-Cola); must be
   verified by a team member before Report 3 numbers are used.
-- Zip frames with `tar -a -c -f dataesults\shelfsense_frames.zip -C datarames fridge_01 ...`,
+- Zip frames with `tar -a -c -f data\results\shelfsense_frames.zip -C data\frames fridge_01 ...`,
   NOT `Compress-Archive` (PowerShell 5.1 writes backslash paths that break on Kaggle's Linux).
 
 ## Weekly reports
