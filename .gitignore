@@ -10,6 +10,7 @@ data/raw_videos/*
 data/frames/*
 data/annotations/*
 data/samples/*
+data/results/*
 !data/**/.gitkeep
 *.mp4
 *.mov

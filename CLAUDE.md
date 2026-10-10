@@ -49,7 +49,7 @@ VLMs are weak at counting densely packed items, so detection and reasoning are s
 |---|---|---|---|
 | 1 | Setup and problem definition | Repo, env, scope, KPIs, initial lit review | Done (verify GitHub push + collaborators added) |
 | 2 | Data and keyframe extraction | Simulator, extractor, dataset stats | Extractor + tests done and run on 3 real fridge clips; simulator, SKU-110K notebook and longer real videos still to do |
-| 3 | Baseline VLM | Zero-shot VLM results + failure cases (Kaggle notebook) | Not started |
+| 3 | Baseline VLM | Zero-shot VLM results + failure cases (Kaggle notebook) | Notebook + evaluator written and tested; needs Kaggle run and verified ground truth |
 | 4 | Product detection | Annotated subset, fine-tuned YOLO nano, mAP | Not started |
 | 5 | Integration and rule engine | End-to-end pipeline → JSON report | Not started |
 | 6 | Evaluation and demo | Metrics vs manual counts, demo app, design report | Not started |
@@ -80,7 +80,24 @@ Run commands (PowerShell, from project root, venv active):
 ```
 python -m pytest -v
 python -m src.extraction.extract_frames --video data/raw_videos --fps 4
+python -m src.vlm.evaluate   # after the Kaggle run
 ```
+
+## Sprint 3 files
+- `notebooks/02_baseline_vlm.ipynb`: Kaggle (GPU T4, Internet on). Qwen2-VL-2B, fp16, zero-shot.
+  5 JSON-answer prompts (fridge_brand, brands, counts, empty_space, price_tags) in **image mode**
+  (each keyframe) and **video mode** (up to 8 keyframes as one video). Writes `vlm_results.jsonl`
+  (one line per answer, resumable). Input: Kaggle dataset made from `data/results/shelfsense_frames.zip`.
+- `src/vlm/evaluate.py`: scores `data/results/vlm_results.jsonl` against
+  `data/annotations/vlm_ground_truth.json`; writes `vlm_eval.csv` and `vlm_failures.csv`.
+  Tolerates code fences / extra text / True-False in answers; normalises brand spellings;
+  image-mode answers combined per video (brand union, majority fridge brand, any-yes).
+  Cooler purity = any product brand owned by a different company than the fridge brand (`BRAND_OWNER`).
+- `tests/test_vlm_evaluate.py`: 21 tests incl. an end-to-end run on fake answers.
+- Ground truth is a DRAFT: fridge_03 brands unknown (red cans may be Mojo, not Coca-Cola); must be
+  verified by a team member before Report 3 numbers are used.
+- Zip frames with `tar -a -c -f dataesults\shelfsense_frames.zip -C datarames fridge_01 ...`,
+  NOT `Compress-Archive` (PowerShell 5.1 writes backslash paths that break on Kaggle's Linux).
 
 ## Weekly reports
 - Written in LaTeX on Overleaf using the course template (IEEEtran, onecolumn journal), with `ref.bib`.
