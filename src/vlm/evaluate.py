@@ -1,7 +1,7 @@
 """Sprint 3: score zero-shot VLM answers (from notebooks/02_baseline_vlm.ipynb) against ground truth.
 
 Inputs:
-  data/results/vlm_results.jsonl            downloaded from the Kaggle notebook output
+  data/results/vlm_results_<version>.jsonl  downloaded from the Kaggle notebook output (v1, v2, ...)
   data/annotations/vlm_ground_truth.json    filled in by hand, one entry per video
 
 Image-mode answers (one per keyframe) are combined per video: brand lists are merged,
@@ -11,8 +11,12 @@ Outputs in data/results/:
   vlm_eval.csv       one row per (mode, video) with the scores
   vlm_failures.csv   every wrong answer with the raw model text, for the failure-case analysis
 
+Every vlm_results_*.jsonl in data/results/ is scored and the versions are printed side by side.
+Both CSVs have a `version` column so they can be filtered in Excel.
+
 Usage:
   python -m src.vlm.evaluate
+  python -m src.vlm.evaluate --results data/results/vlm_results_v2.jsonl
 """
 import argparse
 import csv
@@ -229,21 +233,15 @@ def fmt(v):
     return v
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Score VLM answers against ground truth.")
-    parser.add_argument("--config", default=str(DEFAULT_CONFIG))
-    parser.add_argument("--results", help="vlm_results.jsonl (default: <results_dir>/vlm_results.jsonl)")
-    parser.add_argument("--truth", help="ground truth JSON (default from config)")
-    args = parser.parse_args()
+def version_label(path):
+    """vlm_results_v2.jsonl -> 'v2'. The label is the part of the file name after 'vlm_results_'."""
+    stem = Path(path).stem
+    return stem[len("vlm_results"):].lstrip("_") or stem
 
-    cfg = yaml.safe_load(open(args.config, encoding="utf-8"))["vlm"]
-    results_dir = ROOT / cfg["results_dir"]
-    results_path = Path(args.results) if args.results else results_dir / "vlm_results.jsonl"
-    truth_path = Path(args.truth) if args.truth else ROOT / cfg["ground_truth"]
 
-    truth = {k: v for k, v in json.loads(truth_path.read_text(encoding="utf-8")).items() if not k.startswith("_")}
+def evaluate_file(results_path, truth, label):
+    """Score one results file. Returns (eval_rows, fail_rows), each row tagged with the version label."""
     preds, parse_fail, seconds = predictions(load_results(results_path))
-
     eval_rows, fail_rows = [], []
     for (mode, video), pred in sorted(preds.items()):
         if video not in truth:
@@ -251,14 +249,41 @@ def main():
             continue
         s, failures = score(pred, truth[video])
         n_answers = sum(len(v) for v in pred["_raw"].values())
-        eval_rows.append({"mode": mode, "video": video, "answers": n_answers,
+        eval_rows.append({"version": label, "mode": mode, "video": video, "answers": n_answers,
                           "parse_failures": parse_fail[(mode, video)],
                           "mean_seconds": round(sum(seconds[(mode, video)]) / n_answers, 2), **s})
         for question, expected, got in failures:
             raw_key = {"competitor": "brands"}.get(question, question)
-            fail_rows.append({"mode": mode, "video": video, "question": question,
+            fail_rows.append({"version": label, "mode": mode, "video": video, "question": question,
                               "expected": json.dumps(fmt(expected)), "got": json.dumps(fmt(got)),
                               "raw_answer_example": (pred["_raw"].get(raw_key) or [""])[0][:300]})
+    return eval_rows, fail_rows
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Score VLM answers against ground truth.")
+    parser.add_argument("--config", default=str(DEFAULT_CONFIG))
+    parser.add_argument("--results", nargs="+",
+                        help="results file(s) (default: every vlm_results_*.jsonl in results_dir)")
+    parser.add_argument("--truth", help="ground truth JSON (default from config)")
+    args = parser.parse_args()
+
+    cfg = yaml.safe_load(open(args.config, encoding="utf-8"))["vlm"]
+    results_dir = ROOT / cfg["results_dir"]
+    results_paths = [Path(r) for r in args.results] if args.results else sorted(results_dir.glob("vlm_results*.jsonl"))
+    if not results_paths:
+        raise SystemExit(f"No vlm_results*.jsonl files found in {results_dir}")
+    truth_path = Path(args.truth) if args.truth else ROOT / cfg["ground_truth"]
+    truth = {k: v for k, v in json.loads(truth_path.read_text(encoding="utf-8")).items() if not k.startswith("_")}
+
+    eval_rows, fail_rows, labels = [], [], []
+    for path in results_paths:
+        label = version_label(path)
+        labels.append(label)
+        e, f = evaluate_file(path, truth, label)
+        eval_rows += e
+        fail_rows += f
+        print(f"{label}: {sum(r['answers'] for r in e)} answers from {path.name}")
 
     if not eval_rows:
         raise SystemExit("Nothing to score: check that video names match the ground truth file.")
@@ -269,18 +294,21 @@ def main():
         w.writeheader()
         w.writerows(eval_rows)
     with open(results_dir / "vlm_failures.csv", "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=["mode", "video", "question", "expected", "got", "raw_answer_example"])
+        w = csv.DictWriter(f, fieldnames=["version", "mode", "video", "question", "expected", "got",
+                                          "raw_answer_example"])
         w.writeheader()
         w.writerows(fail_rows)
 
-    # Summary per mode: mean of every numeric score over the videos
-    print(f"\n{'metric':24s}" + "".join(f"{m:>10s}" for m in ("image", "video")))
-    metrics = [k for k in fields if k not in ("mode", "video", "hallucinated_brands", "missed_brands")]
-    for m in metrics:
-        line = f"{m:24s}"
-        for mode in ("image", "video"):
-            vals = [r[m] for r in eval_rows if r["mode"] == mode and isinstance(r.get(m), (int, float))]
-            line += f"{sum(vals) / len(vals):10.2f}" if vals else f"{'-':>10s}"
+    # Summary: mean of every numeric score over the videos, one column per (version, mode)
+    columns = [(v, m) for v in labels for m in ("image", "video")]
+    print(f"\n{'metric':24s}" + "".join(f"{v + ' ' + m:>12s}" for v, m in columns))
+    metrics = [k for k in fields if k not in ("version", "mode", "video", "hallucinated_brands", "missed_brands")]
+    for metric in metrics:
+        line = f"{metric:24s}"
+        for v, m in columns:
+            vals = [r[metric] for r in eval_rows
+                    if r["version"] == v and r["mode"] == m and isinstance(r.get(metric), (int, float))]
+            line += f"{sum(vals) / len(vals):12.2f}" if vals else f"{'-':>12s}"
         print(line)
     print(f"\n{len(fail_rows)} failures -> {results_dir / 'vlm_failures.csv'}")
     print(f"per-video scores -> {results_dir / 'vlm_eval.csv'}")

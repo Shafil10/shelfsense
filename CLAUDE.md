@@ -80,7 +80,7 @@ Run commands (PowerShell, from project root, venv active):
 ```
 python -m pytest -v
 python -m src.extraction.extract_frames --video data/raw_videos --fps 4
-python -m src.vlm.evaluate   # after the Kaggle run
+python -m src.vlm.evaluate   # after the Kaggle run; scores every data/results/vlm_results_*.jsonl
 ```
 
 ## Sprint 3 files
@@ -94,6 +94,17 @@ python -m src.vlm.evaluate   # after the Kaggle run
   image-mode answers combined per video (brand union, majority fridge brand, any-yes).
   Cooler purity = any product brand owned by a different company than the fridge brand (`BRAND_OWNER`).
 - `tests/test_vlm_evaluate.py`: 21 tests incl. an end-to-end run on fake answers.
+- Prompt versions (`PROMPT_VERSION` in the notebook; output `vlm_results_<version>.jsonl`; the evaluator
+  scores every version side by side). Model, image size, tokens and generation settings stay fixed
+  so versions differ only in the prompts.
+  - **v1 results** (165 answers, draft ground truth): image/video brand precision 0.27/0.30, recall
+    1.00/0.50; fridge brand 0.67/0.33; empty space 0.33/0.67; price tags 0/0; 24 answers unparseable.
+    Failure cases: invented brands typical of fridges (Pepsi, 7up, Dr Pepper in a Coca-Cola fridge);
+    every count = 10 (or 1), i.e. no real counting (argument for YOLO); invented price sequences
+    (1, 2, 3... / TK 10, TK 15...) and copying the `<price>` placeholder; repetition loops until the
+    256-token limit; OCR slip "nojo" for Mojo; shop sign / owner text given as fridge brand.
+  - **v2 prompts**: products behind the glass door only, each brand once (max 8), no guessing common
+    brands, ignore signs/menus/"property of" text, explicit empty answers (`"prices": []`).
 - Ground truth is a DRAFT: fridge_03 brands unknown (red cans may be Mojo, not Coca-Cola); must be
   verified by a team member before Report 3 numbers are used.
 - Zip frames with `tar -a -c -f data\results\shelfsense_frames.zip -C data\frames fridge_01 ...`,
