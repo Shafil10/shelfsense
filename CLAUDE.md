@@ -86,9 +86,9 @@ python -m src.vlm.evaluate   # after the Kaggle run; scores every data/results/v
 ## Sprint 3 files
 - `notebooks/02_baseline_vlm.ipynb`: Kaggle (GPU T4, Internet on). Qwen2-VL-2B, fp16, zero-shot.
   5 JSON-answer prompts (fridge_brand, brands, counts, empty_space, price_tags) in **image mode**
-  (each keyframe) and **video mode** (up to 8 keyframes as one video). Writes `vlm_results.jsonl`
+  (each keyframe) and **video mode** (up to 8 keyframes as one video). Writes `vlm_results_<version>.jsonl`
   (one line per answer, resumable). Input: Kaggle dataset made from `data/results/shelfsense_frames.zip`.
-- `src/vlm/evaluate.py`: scores `data/results/vlm_results.jsonl` against
+- `src/vlm/evaluate.py`: scores every `data/results/vlm_results_*.jsonl` against
   `data/annotations/vlm_ground_truth.json`; writes `vlm_eval.csv` and `vlm_failures.csv`.
   Tolerates code fences / extra text / True-False in answers; normalises brand spellings;
   image-mode answers combined per video (brand union, majority fridge brand, any-yes).
