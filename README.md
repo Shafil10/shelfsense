@@ -36,8 +36,8 @@ Kept frames, `frames_log.csv` and `stats.json` are written to `data/frames/<vide
 Use `--fps 4` for very short clips.
 
 ## Baseline VLM (Sprint 3)
-Run `notebooks/02_baseline_vlm.ipynb` on Kaggle (steps are in the notebook), save its output as
-`data/results/vlm_results.jsonl`, fill in `data/annotations/vlm_ground_truth.json`, then:
+Run `notebooks/02_baseline_vlm.ipynb` on Kaggle (steps are in the notebook), save its output in
+`data/results/` (e.g. `vlm_results_v2.jsonl`), fill in `data/annotations/vlm_ground_truth.json`, then:
 ```
 python -m src.vlm.evaluate
 ```

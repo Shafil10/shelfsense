@@ -92,8 +92,11 @@ def test_main_end_to_end(tmp_path, monkeypatch):
         row("video", None, "fridge_brand", '{"fridge_brand": "Pepsi"}'),
         row("video", None, "brands", '{"brands": ["Sprite", "Pepsi"]}'),
     ]
-    results = tmp_path / "vlm_results.jsonl"
-    results.write_text("\n".join(json.dumps(r) for r in rows))
+    (tmp_path / "vlm_results_v1.jsonl").write_text("\n".join(json.dumps(r) for r in rows))
+    # v2: a better answer for the video-mode fridge brand
+    v2 = [dict(r) for r in rows]
+    v2[6]["answer"] = '{"fridge_brand": "Coca-Cola"}'
+    (tmp_path / "vlm_results_v2.jsonl").write_text("\n".join(json.dumps(r) for r in v2))
     truth = tmp_path / "gt.json"
     truth.write_text(json.dumps({
         "_note": "keys starting with _ are ignored",
@@ -103,16 +106,28 @@ def test_main_end_to_end(tmp_path, monkeypatch):
     config = tmp_path / "config.yaml"
     config.write_text(f"vlm:\n  results_dir: {tmp_path.as_posix()}\n  ground_truth: {truth.as_posix()}\n")
 
-    monkeypatch.setattr(sys, "argv", ["evaluate", "--config", str(config), "--results", str(results)])
+    monkeypatch.setattr(sys, "argv", ["evaluate", "--config", str(config)])  # finds both files
     ev.main()
 
     with open(tmp_path / "vlm_eval.csv", newline="") as f:
-        scores = {r["mode"]: r for r in csv.DictReader(f)}
+        all_scores = {(r["version"], r["mode"]): r for r in csv.DictReader(f)}
+    assert set(all_scores) == {("v1", "image"), ("v1", "video"), ("v2", "image"), ("v2", "video")}
+    assert all_scores[("v2", "video")]["fridge_brand_correct"] == "1"
+    scores = {mode: all_scores[("v1", mode)] for mode in ("image", "video")}
     assert scores["image"]["fridge_brand_correct"] == "1"
     assert scores["image"]["brand_recall"] == "1.0"
     assert scores["image"]["parse_failures"] == "1"
     assert scores["video"]["fridge_brand_correct"] == "0"
     with open(tmp_path / "vlm_failures.csv", newline="") as f:
-        failed = {(r["mode"], r["question"]) for r in csv.DictReader(f)}
+        failed = {(r["mode"], r["question"]) for r in csv.DictReader(f) if r["version"] == "v1"}
     assert ("image", "price_tags") in failed  # unparseable answer counts as wrong
     assert ("video", "fridge_brand") in failed and ("video", "brands") in failed
+
+
+@pytest.mark.parametrize("name, label", [
+    ("vlm_results_v1.jsonl", "v1"),
+    ("data/results/vlm_results_v2_hires.jsonl", "v2_hires"),
+    ("vlm_results.jsonl", "vlm_results"),
+])
+def test_version_label(name, label):
+    assert ev.version_label(name) == label
