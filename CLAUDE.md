@@ -105,6 +105,15 @@ python -m src.vlm.evaluate   # after the Kaggle run; scores every data/results/v
     256-token limit; OCR slip "nojo" for Mojo; shop sign / owner text given as fridge brand.
   - **v2 prompts**: products behind the glass door only, each brand once (max 8), no guessing common
     brands, ignore signs/menus/"property of" text, explicit empty answers (`"prices": []`).
+  - **v2 results** (image/video): parse failures 8/0 (v1: 22/2), mean 2.9 s/answer (v1: 3.6);
+    fridge brand 0.67/0.67; empty space 0.67/0.67; price tags 0.33/0; brand precision 0.13/0.25
+    (worse), recall 1.00/1.00. Numeric limits became targets ("at most 8 brands" -> 8 brands listed,
+    "at most 5 prices" -> 5 invented prices). Per-frame brand precision fridge_01 0.55 -> 0.48.
+    Counts still 10/10/10 or 0/0/0.
+  - **Conclusion**: prompting fixes output format (parsing, loops, speed, vague answers) but not
+    perception (invented brands, counting, price tags) -> supports YOLO detect + per-crop VLM.
+    Stop prompt tuning. Next: crop test (single-bottle crops -> "what brand is this?"), finish ground
+    truth (fridge_03 brands, counts), Report 3. With 3 videos, report failure patterns, not significance.
 - Ground truth is a DRAFT: fridge_03 brands unknown (red cans may be Mojo, not Coca-Cola); must be
   verified by a team member before Report 3 numbers are used.
 - Zip frames with `tar -a -c -f data\results\shelfsense_frames.zip -C data\frames fridge_01 ...`,
