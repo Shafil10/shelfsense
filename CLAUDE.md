@@ -16,6 +16,24 @@ GitHub repo: https://github.com/Shafil10/shelfsense
 Assigned topic: *video understanding with VLMs*. Application: a field merchandiser records a
 walkthrough video of store shelves, and ShelfSense produces an audit report.
 
+**Real problem (from the team, Bangladesh retail):** brand companies (Coca-Cola, Pepsi/Transcom,
+Akij, ...) pay shops for merchandising: they supply branded fridges on condition that only their
+products are stored in them, and pay extra for prime placement (front / eye level). Field audit
+representatives are often bribed by shopkeepers and fabricate their reports. ShelfSense replaces the
+rep's word with **verifiable photo/video evidence** and an automatic audit, so companies spend less on
+audits and re-checks, and shopkeepers stay accountable. Goal: **cost reduction for the companies**.
+
+Design consequences:
+- Every finding must point to evidence (keyframe + timestamp, later a bounding box) a human can check.
+- **Precision over recall for violations**: a false "competitor in your fridge" accuses an honest
+  shopkeeper. VLM brand hallucination (Sprint 3) is therefore unacceptable on whole-fridge images.
+- Key KPIs: **cooler purity** (only the owner's brands in a branded fridge) and **paid placement**
+  (agreed brand on the agreed shelf / front), then out-of-stock and share of shelf.
+- Evidence integrity is part of the problem: a dishonest rep could film another fridge, reuse an old
+  video, or skip shelves. Cheap checks in scope: fridge identity (asset sticker / "property of" text),
+  re-used footage via perceptual hashes across audits, full-coverage check, file metadata + SHA-256.
+  A tamper-proof capture app (GPS, live capture) is future work.
+
 KPIs:
 - **Out-of-stock**: empty shelf gaps where a product should be
 - **Share of shelf**: % of facings for the client brand vs competitors
