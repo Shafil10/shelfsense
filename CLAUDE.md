@@ -68,7 +68,7 @@ VLMs are weak at counting densely packed items, so detection and reasoning are s
 | 1 | Setup and problem definition | Repo, env, scope, KPIs, initial lit review | Done (verify GitHub push + collaborators added) |
 | 2 | Data and keyframe extraction | Simulator, extractor, dataset stats | Extractor + tests done and run on 3 real fridge clips; simulator, SKU-110K notebook and longer real videos still to do |
 | 3 | Baseline VLM | Zero-shot VLM results + failure cases (Kaggle notebook) | Notebook + evaluator written and tested; needs Kaggle run and verified ground truth |
-| 4 | Product detection | Annotated subset, fine-tuned YOLO nano, mAP | Not started |
+| 4 | Product detection | Annotated subset, fine-tuned YOLO nano, mAP | SKU-110K training + pre-label notebook written and smoke-tested; needs Kaggle run, then correct pre-labels in Roboflow |
 | 5 | Integration and rule engine | End-to-end pipeline → JSON report | Not started |
 | 6 | Evaluation and demo | Metrics vs manual counts, demo app, design report | Not started |
 
@@ -156,6 +156,22 @@ python -m src.vlm.evaluate   # after the Kaggle run; scores every data/results/v
   verified by a team member before Report 3 numbers are used.
 - Zip frames with `tar -a -c -f data\results\shelfsense_frames.zip -C data\frames fridge_01 ...`,
   NOT `Compress-Archive` (PowerShell 5.1 writes backslash paths that break on Kaggle's Linux).
+
+## Sprint 4 files
+- `notebooks/03_yolo_sku110k_prelabel.ipynb`: Kaggle (GPU T4, Internet on, Save & Run All, ~1-1.5 h).
+  Streams SKU-110K (13.6 GB, `trax-geometry.s3.amazonaws.com/cvpr_challenge/SKU110K_fixed.tar.gz`) into
+  `/tmp`, converts a random subset (2,000 train / 500 val, seed 0, shrunk to max 1280 px, class 0 =
+  `product`, skips corrupt / EXIF-mismatched images), trains YOLOv8n (imgsz 1024, 30 epochs, patience 10,
+  `max_det` 1000 because shelves exceed the default 300), reports SKU val mAP, then pre-labels our
+  annotation frames. Input: Kaggle dataset `shelfsense-annotation-batch` (annotate_train.zip +
+  annotate_test.zip). Outputs: `prelabels_roboflow.zip` (YOLO format, classes product + empty_gap),
+  `yolo_sku110k_summary.json`, `prelabel_counts.csv`, `prelabel_examples.jpg`, `sku110k_yolov8n_best.pt`
+  (Drive only).
+- Smoke-tested locally on CPU with a fake mini SKU-110K (all cells run; conversion skips corrupt and
+  size-mismatched images; zip layout and labels checked). No real mAP yet.
+- Next: correct pre-labels in Roboflow (test frames checked by two people: they are ground truth and
+  pre-labels bias annotators), then notebook 04: fine-tune on our train frames, mAP on our test frames.
+- Local env on the E: PC: Python 3.12 `.venv` with CPU torch 2.14 + ultralytics 8.4.
 
 ## Weekly reports
 - Written in LaTeX on Overleaf using the course template (IEEEtran, onecolumn journal), with `ref.bib`.
