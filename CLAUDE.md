@@ -94,6 +94,26 @@ still logged in `frames_log.csv` for comparison. At 4 fps the 3 clips give 45 sa
 0 blurry, 15 duplicates. The clips contain no real motion blur, so the blur filter is still
 untested on real blurry footage.
 
+**Supermarket footage (2026-10-18):** `Test_Videos/` (gitignored, share via Drive) holds 119 MP4s:
+115 unique (4 "(1)" files are byte-identical copies), ~22 min total, median 11 s.
+- 111 own recordings from one Bangladeshi supermarket, 576x1024 portrait WhatsApp, ~30 fps. They show
+  **open shelves, not branded fridges**: personal care, biscuits/snacks, noodles, tea/coffee, juice,
+  soft-drink cans (WA0063-66 only), cereal, milk, rice/lentils, oil... TK price tags and "OFFER" labels
+  visible -> good for product detection (Sprint 4), share of shelf, price tags; not for cooler purity.
+- 4 stock clips (`<id>_1920_1080_<fps>.mp4`): wide aisle shots, excluded (context only).
+- `data/annotations/video_manifest.csv`: category per video (guessed from the middle frame,
+  `verified=no`), in-scope category, and **split by blocks of consecutive videos** (neighbouring clips
+  film the same shelf): test = WA0002-05, WA0054-60, WA0061-66, WA0089-94, WA0106-111 (29 videos),
+  train = the other 82. Never train on test videos.
+- Extraction at 4 fps (`data/results/dataset_stats.json`): train 3,771 sampled / 3,420 kept;
+  test 1,298 / 1,071; 169 dropped blurry, 537 duplicates over all 115.
+- First real motion blur (WA0089-92, hand-held milk cartons): blur effect ranks frames correctly
+  (sharp 0.25-0.35, smeared 0.58-0.62) but there is no clean gap near 0.5 (some kept 0.49 frames are
+  soft, some dropped 0.51 frames readable). Kept `blur_max: 0.5`; 0.45 would be stricter.
+- `scripts/inventory_videos.py`: metadata + SHA-256 per video, flags exact duplicates.
+- `scripts/select_annotation_frames.py`: sharpest frame per time-part of each video ->
+  `data/annotation_batch/{train,test}/` (2 per video: 164 train, 58 test) for Roboflow/CVAT.
+
 Run commands (PowerShell, from project root, venv active):
 ```
 python -m pytest -v
