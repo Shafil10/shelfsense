@@ -11,10 +11,12 @@ data/frames/*
 data/annotations/*
 data/samples/*
 data/results/*
+data/annotation_batch/
 !data/**/.gitkeep
 *.mp4
 *.mov
 *.avi
+Test_Videos/
 *.pt
 *.onnx
 runs/
