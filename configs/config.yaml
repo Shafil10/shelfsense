@@ -10,7 +10,31 @@ extraction:
 detection:
   model: yolov8n.pt        # nano model: small enough for CPU inference
   conf_threshold: 0.25
-  img_size: 640
+  img_size: 640            # general default; Sprint 4 shelf models use sku110k.img_size
+  max_det: 1000            # Ultralytics default is 300; a packed shelf can hold more products
+
+sku110k:                   # Sprint 4 baseline detector (src/detection/)
+  archive: datasets/SKU110K_fixed.tar.gz
+  raw_dir: datasets/SKU110K_fixed
+  yolo_dir: datasets/sku110k_yolo
+  n_train: 2000            # random subset of the ~8,200 training photos
+  n_val: 500               # random subset of the validation photos, for mAP
+  max_side: 1280           # photos are up to ~4000 px; shrink once so data loading is not the bottleneck
+  img_size: 1024           # our frames are 576x1024, so 1024 keeps them at full detail
+  epochs: 30
+  batch: 2                 # 4 GB GPU at 1024 px: batch 4 reached 4.8 GB on dense images and spilled into
+                           # shared memory (2.7x slower); batch 8 needs 7.5 GB. Ultralytics still
+                           # accumulates gradients to 64 images per weight update (nbs)
+  workers: 2               # each data-loader worker loads its own torch + CUDA; 4 ran out of Windows commit memory
+  patience: 10
+  seed: 0
+
+finetune:                  # Sprint 4 step 2: SKU-110K model fine-tuned on our corrected frames
+  yolo_dir: datasets/shelfsense_yolo
+  val_fraction: 0.15       # share of TRAIN videos held out for early stopping (test frames never used)
+  epochs: 50
+  patience: 15
+  seed: 0
 
 vlm:
   model: Qwen/Qwen2-VL-2B-Instruct   # small VLM, run on Colab/Kaggle GPU
