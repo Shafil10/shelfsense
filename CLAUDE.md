@@ -181,8 +181,20 @@ or on Kaggle with the notebook. Settings in `configs/config.yaml` (`detection`, 
   (`detections_summary.json`). Annotation frames: median 30 boxes. Good on packed shelves at normal
   distance; fails on big close-up products (milk cartons median 6 boxes/frame vs canned food 53): SKU-110K
   objects are small. Fix: fine-tune on our frames; film shelves from ~1 m.
+- `src/vlm/crop_brands.py` (steps `crops`, `ask`, `score`): Qwen2-VL-2B fp16 zero-shot on 120 random
+  detector crops (conf >= 0.5, >= 40 px) from the 12 annotation test frames of WA0061-66 (drinks), vs the
+  same model on the whole frames. Labels `data/annotations/crop_ground_truth.csv` (67 readable / 53 not;
+  readable = enough of the printed name to identify it, logos alone do not count) and `frame_brands.csv`
+  were **drafted by Claude, need a team check**. Results (`data/results/crop_vlm_eval.json`):
+  crops 45/67 readable correct (0.67), with a brand catalogue (difflib cutoff 0.8, catalogue = the 24
+  labelled brands, so an upper bound) 48/67 (0.72); frame-level brand precision/recall crops 0.94/0.63 vs
+  whole frame 1.00/0.30 (catalogue), raw 0.64/0.60 vs 0.56/0.25. 6 of 12 whole-frame answers looped to the
+  256-token limit (no usable list). Wrong real brand after catalogue: 2/120 crops, both "Coca-Cola".
+  No answer mostly on Thai/Bengali script. Gatorade/Fanta named from logos on "unreadable" crops.
+  21 s/crop on the 4 GB GPU (model partly offloaded to CPU), 176 s/whole frame.
 - Figures for reports/demo: `data/results/figures/` (training curves, prelabel examples, good/bad
-  detections, blur check, video overview).
+  detections, crop brand examples, blur check, video overview).
+- Progress doc for the faculty meeting (2026-10-18): https://claude.ai/code/artifact/7921bd16-4f06-4b87-bc81-39976b203606
 - Next: correct pre-labels in Roboflow (test frames checked by two people: they are ground truth and
   pre-labels bias annotators), then `finetune_ours.py`.
 
