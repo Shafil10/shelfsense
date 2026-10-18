@@ -1,13 +1,13 @@
 # ShelfSense: AI-Based Retail Merchandising Audit
 
-Capstone project for **CSE499A Senior Design I**, North South University, Fall 2026 (Section 10, Group 5).
+Capstone project for **CSE499A Senior Design I**, North South University, Fall 2026 (Section 10, Group 1).
 
-## Team
+## Team (list in this order on reports)
 | Name | Student ID | Email |
 |---|---|---|
-| Shafil Ahmed | 2231927042 | shafil.ahmed@northsouth.edu |
-| Sadid Mehal Habib | 2312064042 | sadid.habib@northsouth.edu |
 | Syed Ashfaq Shafin | 2312845042 | syed.shafin.2312845@northsouth.edu |
+| Sadid Mehal Habib | 2312064042 | sadid.habib@northsouth.edu |
+| Shafil Ahmed | 2231927042 | shafil.ahmed@northsouth.edu |
 | Rutaba Adiba Rahman | 2231975042 | rutaba.rahman@northsouth.edu |
 
 GitHub repo: https://github.com/Shafil10/shelfsense
@@ -211,7 +211,7 @@ runs). Lessons:
 
 ## Weekly reports
 - Written in LaTeX on Overleaf using the course template (IEEEtran, onecolumn journal), with `ref.bib`.
-- Title: `[CSE499A(10) - Group\#5] Weekly Report: ShelfSense: AI-Based Retail Merchandising Audit`
+- Title: `[CSE499A(10) - Group\#1] Weekly Report: ShelfSense: AI-Based Retail Merchandising Audit`
 - Each report section has: Follow-up from last week (status of last week's targets), Work
   narrative (tasks completed, challenges faced, progress made; figures/tables welcome),
   Target for next weekly update (numbered list, reused as next week's follow-up), Individual
