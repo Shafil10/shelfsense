@@ -42,7 +42,7 @@ def example_grid(model, frames, kw, n=12, cols=6, tile=(288, 512)):
     tiles = []
     for p in picks:
         r = model.predict(str(p), **kw)[0]
-        im = cv2.resize(r.plot(labels=False, conf=False, line_width=1), tile)
+        im = cv2.resize(r.plot(labels=False, conf=False, line_width=2), tile)
         cv2.putText(im, f"{p.name.split('__')[0][-6:]}: {len(r.boxes)}", (6, 26),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 4)
         cv2.putText(im, f"{p.name.split('__')[0][-6:]}: {len(r.boxes)}", (6, 26),
