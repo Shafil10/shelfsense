@@ -26,3 +26,6 @@ datasets/
 # OS / editor
 .DS_Store
 Thumbs.db
+
+# Tectonic build output (the shared copy is Weekly_Report_3_4_Group1.pdf)
+docs/weekly_reports/preview.pdf
