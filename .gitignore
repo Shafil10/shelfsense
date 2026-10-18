@@ -12,6 +12,7 @@ data/annotations/*
 data/samples/*
 data/results/*
 data/annotation_batch/
+data/crops/
 !data/**/.gitkeep
 *.mp4
 *.mov
