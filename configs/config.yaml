@@ -25,7 +25,8 @@ sku110k:                   # Sprint 4 baseline detector (src/detection/)
   batch: 2                 # 4 GB GPU at 1024 px: batch 4 reached 4.8 GB on dense images and spilled into
                            # shared memory (2.7x slower); batch 8 needs 7.5 GB. Ultralytics still
                            # accumulates gradients to 64 images per weight update (nbs)
-  workers: 2               # each data-loader worker loads its own torch + CUDA; 4 ran out of Windows commit memory
+  workers: 1               # each data-loader worker holds its own torch + CUDA (~1 GB commit) and validation
+                           # uses twice as many; 2 grew the pagefile on the full C: drive
   patience: 10
   seed: 0
 

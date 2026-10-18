@@ -119,6 +119,7 @@ def main():
     kw = {"imgsz": sku["img_size"], "conf": det["conf_threshold"], "max_det": det["max_det"],
           "device": device, "verbose": False}
     vkw = {"imgsz": sku["img_size"], "batch": sku["batch"], "max_det": det["max_det"], "device": device,
+           "workers": sku["workers"],
            "plots": False, "verbose": False, "exist_ok": True}
 
     counts, val_videos = build_dataset(Path(args.export), out, cfg["val_fraction"], cfg["seed"])

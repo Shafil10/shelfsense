@@ -68,7 +68,7 @@ VLMs are weak at counting densely packed items, so detection and reasoning are s
 | 1 | Setup and problem definition | Repo, env, scope, KPIs, initial lit review | Done (verify GitHub push + collaborators added) |
 | 2 | Data and keyframe extraction | Simulator, extractor, dataset stats | Extractor + tests done and run on 3 real fridge clips; simulator, SKU-110K notebook and longer real videos still to do |
 | 3 | Baseline VLM | Zero-shot VLM results + failure cases (Kaggle notebook) | Notebook + evaluator written and tested; needs Kaggle run and verified ground truth |
-| 4 | Product detection | Annotated subset, fine-tuned YOLO nano, mAP | SKU-110K training + pre-label notebook written and smoke-tested; needs Kaggle run, then correct pre-labels in Roboflow |
+| 4 | Product detection | Annotated subset, fine-tuned YOLO nano, mAP | YOLOv8n trained on SKU-110K (mAP50 0.913), 222 frames pre-labelled; next: correct in Roboflow, fine-tune, mAP on our test frames |
 | 5 | Integration and rule engine | End-to-end pipeline → JSON report | Not started |
 | 6 | Evaluation and demo | Metrics vs manual counts, demo app, design report | Not started |
 
@@ -158,20 +158,44 @@ python -m src.vlm.evaluate   # after the Kaggle run; scores every data/results/v
   NOT `Compress-Archive` (PowerShell 5.1 writes backslash paths that break on Kaggle's Linux).
 
 ## Sprint 4 files
-- `notebooks/03_yolo_sku110k_prelabel.ipynb`: Kaggle (GPU T4, Internet on, Save & Run All, ~1-1.5 h).
-  Streams SKU-110K (13.6 GB, `trax-geometry.s3.amazonaws.com/cvpr_challenge/SKU110K_fixed.tar.gz`) into
-  `/tmp`, converts a random subset (2,000 train / 500 val, seed 0, shrunk to max 1280 px, class 0 =
-  `product`, skips corrupt / EXIF-mismatched images), trains YOLOv8n (imgsz 1024, 30 epochs, patience 10,
-  `max_det` 1000 because shelves exceed the default 300), reports SKU val mAP, then pre-labels our
-  annotation frames. Input: Kaggle dataset `shelfsense-annotation-batch` (annotate_train.zip +
-  annotate_test.zip). Outputs: `prelabels_roboflow.zip` (YOLO format, classes product + empty_gap),
-  `yolo_sku110k_summary.json`, `prelabel_counts.csv`, `prelabel_examples.jpg`, `sku110k_yolov8n_best.pt`
-  (Drive only).
-- Smoke-tested locally on CPU with a fake mini SKU-110K (all cells run; conversion skips corrupt and
-  size-mismatched images; zip layout and labels checked). No real mAP yet.
+Detector = YOLOv8n, one class `product`, trained on a SKU-110K subset. Run locally on the E: PC (below)
+or on Kaggle with the notebook. Settings in `configs/config.yaml` (`detection`, `sku110k`, `finetune`).
+- `src/detection/prepare_sku110k.py`: random subset (2,000 train / 500 val, seed 0) -> YOLO format in
+  `datasets/sku110k_yolo`, images shrunk to max 1280 px, skips unreadable / EXIF-mismatched images (0 skipped).
+  SKU-110K (12.2 GB, `trax-geometry.s3.amazonaws.com/cvpr_challenge/SKU110K_fixed.tar.gz`) unpacked in
+  `datasets/SKU110K_fixed`. **License: academic, non-commercial, no redistribution** -> never upload its
+  photos (Drive, GitHub, Roboflow).
+- `src/detection/train_sku110k.py`: trains (or `--resume`, `--eval-only`), then validates 3 ways ->
+  `data/results/yolo_sku110k_v8n_eval.json`. Weights `runs/detect/sku110k_v8n/weights/best.pt` (Drive only).
+- `src/detection/prelabel.py`: pre-labels -> `data/annotation_batch/prelabels_roboflow.zip` (train/test,
+  classes product + empty_gap), `prelabel_counts.csv`, `prelabel_examples.jpg`; `--all-frames` ->
+  `detections_per_frame.csv` (boxes on every kept keyframe).
+- `src/detection/finetune_ours.py`: after Roboflow correction: fine-tune on our train frames (val = 15% of
+  train VIDEOS), test mAP (product, empty_gap) + counting MAE before/after on our test frames. Smoke-tested only.
+- `notebooks/03_yolo_sku110k_prelabel.ipynb`: same pipeline for Kaggle (not run; local GPU was used instead).
+- **Results (SKU-110K val, 500 images):** imgsz 1024 + max_det 1000: mAP50 0.913, mAP50-95 0.564, P 0.897,
+  R 0.844. max_det 299: 0.889 / 0.549 (1 SKU image has 718 products, 11/500 have >300). imgsz 640:
+  0.866 / 0.510. 30 epochs, 163.5 min on GTX 1650; mAP still rising at epoch 30.
+  Ultralytics 8.4 silently raises max_det when it equals the default 300 in val, so compare with 299.
+- **On our frames:** 4,558 keyframes, 151,279 boxes, median 29/frame, 27 frames with none
+  (`detections_summary.json`). Annotation frames: median 30 boxes. Good on packed shelves at normal
+  distance; fails on big close-up products (milk cartons median 6 boxes/frame vs canned food 53): SKU-110K
+  objects are small. Fix: fine-tune on our frames; film shelves from ~1 m.
+- Figures for reports/demo: `data/results/figures/` (training curves, prelabel examples, good/bad
+  detections, blur check, video overview).
 - Next: correct pre-labels in Roboflow (test frames checked by two people: they are ground truth and
-  pre-labels bias annotators), then notebook 04: fine-tune on our train frames, mAP on our test frames.
-- Local env on the E: PC: Python 3.12 `.venv` with CPU torch 2.14 + ultralytics 8.4.
+  pre-labels bias annotators), then `finetune_ours.py`.
+
+## The E: PC (second machine, differs from the laptop above)
+i7-8565U, 20 GB RAM, **GTX 1650 Max-Q 4 GB (CUDA)**, C: nearly full -> everything goes on E:
+(`.venv` Python 3.12 with torch 2.11+cu128, pip cache `E:\pip-cache`, HF models `E:\hf-cache`, datasets,
+runs). Lessons:
+- GPU memory: batch 2 at 1024 px (3 GB). Batch 4 hit 4.8 GB on dense images and spilled into shared
+  memory (2.7x slower); batch 8 needs 7.5 GB. AMP is auto-disabled on GTX 16xx (fp32).
+- Windows commit memory: each data-loader worker holds its own torch + CUDA (~1 GB) and validation uses
+  twice the training workers; 2 workers grew the pagefile on C: to 13 GB. Use `workers: 1`.
+- Scripts that use data-loader workers must have `if __name__ == "__main__":` and run from a file
+  (piped stdin scripts hang on Windows).
 
 ## Weekly reports
 - Written in LaTeX on Overleaf using the course template (IEEEtran, onecolumn journal), with `ref.bib`.

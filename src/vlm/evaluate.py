@@ -39,6 +39,12 @@ BRAND_ALIASES = {
     "mirinda": "mirinda", "aquafina": "aquafina", "sting": "sting",
     "mojo": "mojo", "clemon": "clemon", "speed": "speed", "frutika": "frutika",
     "pran": "pran", "frooto": "frooto", "red bull": "red bull", "redbull": "red bull",
+    # supermarket drinks shelves (crop test, src/vlm/crop_brands.py)
+    "a w": "a&w", "a and w": "a&w", "canada dry": "canada dry", "dr pepper": "dr pepper",
+    "arizona": "arizona", "gatorade": "gatorade", "prime": "prime",
+    "dunkin": "dunkin", "amwel": "amwel", "teazle": "teazle", "malee": "malee", "chabaa": "chabaa",
+    "stute": "stute", "latina": "latina", "cyprina": "cyprina", "doi kham": "doi kham",
+    "thai coco": "thai coco", "dewlands": "dewlands",
 }
 
 # Which company owns each brand: used for cooler purity (competitor products in a branded fridge)
