@@ -1,7 +1,7 @@
 # ShelfSense: AI-Based Retail Merchandising Audit
 
 CSE499A Senior Design I, North South University, Fall 2026
-Team: Shafil Ahmed, Sadid Mehal Habib, Syed Ashfaq Shafin, Rutaba Adiba Rahman
+Group 1 (Section 10): Syed Ashfaq Shafin, Sadid Mehal Habib, Shafil Ahmed, Rutaba Adiba Rahman
 
 ShelfSense takes a walkthrough video of store shelves and produces an audit report:
 out-of-stock gaps, share of shelf, planogram compliance, and price tag / POSM checks.
