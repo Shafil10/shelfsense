@@ -1,6 +1,6 @@
 # ShelfSense: AI-Based Retail Merchandising Audit
 
-Capstone project for **CSE499A Senior Design I**, North South University, Fall 2026 (Section 10, Group 1).
+Capstone project for **CSE499A Senior Design I**, North South University, Fall 2026 (Section 13, Group 1).
 
 ## Team (list in this order on reports)
 | Name | Student ID | Email |
@@ -211,7 +211,7 @@ runs). Lessons:
 
 ## Weekly reports
 - Written in LaTeX on Overleaf using the course template (IEEEtran, onecolumn journal), with `ref.bib`.
-- Title: `[CSE499A(10) - Group\#1] Weekly Report: ShelfSense: AI-Based Retail Merchandising Audit`
+- Title: `[CSE499A(13) - Group\#1] Weekly Report: ShelfSense: AI-Based Retail Merchandising Audit`
 - Each report section has: Follow-up from last week (status of last week's targets), Work
   narrative (tasks completed, challenges faced, progress made; figures/tables welcome),
   Target for next weekly update (numbered list, reused as next week's follow-up), Individual
