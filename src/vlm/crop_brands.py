@@ -21,6 +21,7 @@ Usage (project root, venv active):
 """
 import argparse
 import csv
+import difflib
 import json
 import random
 import time
@@ -216,6 +217,31 @@ def score(args):
         vals = [f[key] for f in per_frame if f[key] is not None]
         return round(sum(vals) / len(vals), 3) if vals else None
 
+    # Brand catalogue: an audit knows which brands to expect, so a free-text answer can be snapped to the
+    # closest catalogue name ("chabac" -> "chabaa") and anything not close to one is dropped as unknown.
+    # The catalogue here is every brand in the labels (the test brands), so this is an upper bound.
+    catalogue = sorted({b for b in truth.values() if b} | {b for g in frame_truth.values() for b in g})
+
+    def snap(brand):
+        match = difflib.get_close_matches(brand, catalogue, n=1, cutoff=0.8) if brand else []
+        return match[0] if match else None
+
+    cat = {"correct": 0, "wrong_brand": 0, "invented_on_unreadable": 0}
+    for name, true in truth.items():
+        got = snap(brand_of(crop_ans[name]["answer"]))
+        if true and got == true:
+            cat["correct"] += 1
+        elif true and got:
+            cat["wrong_brand"] += 1
+        elif not true and got:
+            cat["invented_on_unreadable"] += 1
+    for f in per_frame:
+        snapped = {s for s in map(snap, f["from_crops"]) if s}
+        f["crops_catalogue"] = sorted(snapped)
+        f["crops_catalogue_precision"], f["crops_catalogue_recall"] = prf(snapped, set(f["true"]))
+        whole = {s for s in map(snap, f["whole_frame"]) if s}
+        f["whole_catalogue_precision"], f["whole_catalogue_recall"] = prf(whole, set(f["true"]))
+
     readable = max(n["readable"], 1)
     result = {
         "model": next(iter(crop_ans.values()))["model"], "videos": VIDEOS, "crop_counts": n,
@@ -225,6 +251,13 @@ def score(args):
         "frames": len(per_frame),
         "whole_frame_brand_precision": mean("whole_precision"), "whole_frame_brand_recall": mean("whole_recall"),
         "crops_brand_precision": mean("crops_precision"), "crops_brand_recall": mean("crops_recall"),
+        "whole_frame_unusable_answers": sum(1 for f in per_frame if not f["whole_frame"]),
+        "catalogue": {"brands": len(catalogue), "crop_counts": cat,
+                      "crop_accuracy_on_readable": round(cat["correct"] / readable, 3),
+                      "whole_frame_brand_precision": mean("whole_catalogue_precision"),
+                      "whole_frame_brand_recall": mean("whole_catalogue_recall"),
+                      "crops_brand_precision": mean("crops_catalogue_precision"),
+                      "crops_brand_recall": mean("crops_catalogue_recall")},
         "mean_seconds_crop": round(sum(a["seconds"] for a in crop_ans.values()) / len(crop_ans), 2),
         "mean_seconds_frame": round(sum(a["seconds"] for a in frame_ans.values()) / len(frame_ans), 2),
         "per_frame": per_frame,
