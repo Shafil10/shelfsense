@@ -212,6 +212,13 @@ svg.fridge { width: 100%; max-width: 340px; height: auto; display: block; margin
 .fr-hatch { fill: var(--surface-2); }
 .fr-nf { fill: var(--muted); font-size: 13px; font-weight: 600; }
 .scanline { mix-blend-mode: screen; }
+.fr-sign { fill: var(--surface-solid); stroke: var(--line-strong); }
+.fr-signtx { fill: var(--muted); font-family: var(--font-mono); font-size: 12px; letter-spacing: 3px; }
+.fr-tag { fill: #FFD84A; opacity: .75; }
+.fr-paid { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 5 4; filter: drop-shadow(0 0 6px var(--glow)); animation: dash 1.6s linear infinite; }
+.fr-paidtx { fill: var(--accent); font-family: var(--font-mono); font-size: 9px; font-weight: 500; letter-spacing: 1px; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
 .box { fill: none; stroke-width: 2.5; }
 .box.bad { stroke: var(--bad); filter: drop-shadow(0 0 6px var(--bad)); }
 .box.warn { stroke: var(--warn); stroke-dasharray: 6 3; filter: drop-shadow(0 0 6px var(--warn)); animation: blink 1.4s ease-in-out infinite, dash 1.2s linear infinite; }
@@ -405,9 +412,14 @@ const BRAND = {
   "Coca-Cola": { c: "#D7262E", owner: "coke" }, "Sprite": { c: "#2E9B4E", owner: "coke" }, "Fanta": { c: "#F28C1B", owner: "coke" }, "Kinley": { c: "#6FB7E0", owner: "coke" },
   "Pepsi": { c: "#1F4FB8", owner: "transcom" }, "7Up": { c: "#3DAF5B", owner: "transcom" }, "Mirinda": { c: "#F07A1F", owner: "transcom" }, "Mountain Dew": { c: "#9CC63B", owner: "transcom" },
   "Mojo": { c: "#7A1F1F", owner: "akij" }, "Clemon": { c: "#E6C229", owner: "akij" }, "Speed": { c: "#2B2B3A", owner: "akij" },
-  "Pran Up": { c: "#58B04A", owner: "pran" }, "Frutika": { c: "#E99A2C", owner: "pran" }, "Pran Cola": { c: "#8E2430", owner: "pran" }
+  "Pran Up": { c: "#58B04A", owner: "pran" }, "Frutika": { c: "#E99A2C", owner: "pran" }, "Pran Cola": { c: "#8E2430", owner: "pran" },
+  "Coco Fresh": { c: "#F2EADB", owner: "nutricoco" },
+  "Other dessert": { c: "#8E99AB", owner: null }, "Other snack": { c: "#6F7B8E", owner: null }, "Other drink": { c: "#A4AEBD", owner: null }
 };
+const FILLER = ["Other dessert", "Other snack", "Other drink"];
+const AGREED = 4; // facings NutriCoco pays for on the eye-level shelf (sample contract)
 const COMPANIES = [
+  { id: "nutricoco", kind: "shelf", name: { en: "NutriCoco", bn: "নিউট্রিকোকো" }, product: { en: "Coco Fresh Coconut Pudding", bn: "কোকো ফ্রেশ কোকোনাট পুডিং" }, prefix: "NC", brands: ["Coco Fresh"], rivals: ["Other dessert", "Other snack"], plan: "Pilot", fee: 800, fb: "https://www.facebook.com/cocofreshpudding/", isNew: true },
   { id: "coke", name: { en: "Coca-Cola Bangladesh", bn: "কোকা-কোলা বাংলাদেশ" }, prefix: "CC", brands: ["Coca-Cola", "Sprite", "Fanta", "Kinley"], rivals: ["Mojo", "Pepsi"], plan: "Pilot", fee: 1500 },
   { id: "transcom", name: { en: "Transcom Beverages (Pepsi)", bn: "ট্রান্সকম বেভারেজেস (পেপসি)" }, prefix: "TB", brands: ["Pepsi", "7Up", "Mirinda", "Mountain Dew"], rivals: ["Coca-Cola", "Clemon"], plan: "Pilot", fee: 1400 },
   { id: "akij", name: { en: "Akij Food & Beverage", bn: "আকিজ ফুড অ্যান্ড বেভারেজ" }, prefix: "AK", brands: ["Mojo", "Clemon", "Speed"], rivals: ["Pepsi", "Sprite"], plan: "Trial", fee: 1200 },
@@ -435,7 +447,7 @@ const FRAMES = [{ t: "00:01.4", shelf: 0 }, { t: "00:03.2", shelf: 1 }, { t: "00
 const TX = {
   en: {
     demo: "Demo prototype · sample data · AI results are simulated", view: "View", web: "Web", phone: "Phone", switchRole: "Switch role", theme: "Theme",
-    tagline: "Fridge audits backed by video evidence", heroP: "Merchandisers film the fridge. ShelfSense checks brands, placement and stock, and the auditor sees the proof behind every finding before a shop is paid or penalised.",
+    tagline: "Shelf and fridge audits backed by video evidence", heroP: "Merchandisers film the shelf or fridge. ShelfSense checks brands, placement and stock, and the auditor sees the proof behind every finding before a shop is paid or penalised.",
     signInAs: "Sign in as", role_merch: "Merchandiser", role_auditor: "Auditor", role_admin: "Admin",
     role_merch_d: "Visit shops, record fridge videos, see your results", role_auditor_d: "Review findings, check evidence, decide payouts", role_admin_d: "Manage companies, users, shops and settings",
     enter: "Enter", company: "Company", language: "Language", logout: "Log out",
@@ -472,7 +484,7 @@ const TX = {
     trustExplain: "Your score drops when a video fails an integrity check or an auditor overturns a result from your visit. Film the whole fridge, in the shop, on the day.",
     scoreGood: "Good standing", howToKeep: "How to keep it high", keep1: "Film every shelf, top to bottom", keep2: "Show the asset sticker on the door", keep3: "Never reuse an old video", keep4: "Hold the phone steady",
     plan: "Plan", fridges: "Fridges", addCompany: "Add company", companyName: "Company name", brandsCsv: "Brands, comma separated", add: "Add",
-    companiesP: "ShelfSense works for any brand that places fridges in shops. Each company sees only its own shops and results.",
+    companiesP: "ShelfSense works for any brand that pays shops for a branded fridge or a front shelf spot. Each company sees only its own shops and results.", shelfId: "Shelf ID",
     name: "Name", role: "Role", status: "Status", active: "Active", addUser: "Add user", usersP: "Merchandisers record visits, auditors decide, admins configure.",
     ownerBrand: "Fridge brand", paidShelf: "Paid shelf", fee: "Monthly fee",
     brandsP: "Cooler purity uses this table. A fridge fails if it holds a brand owned by a different company.", brand: "Brand", owner: "Owner",
@@ -482,11 +494,16 @@ const TX = {
     pipeline: "Pipeline status", activity: "Activity", stageWorks: "Working", stageTest: "Being tested", stageNext: "Not built yet",
     pl1: "Frame extraction", pl1d: "4 fps, Crete blur filter, pHash duplicates. 115 supermarket videos: 4,491 frames kept, 169 blurry and 537 duplicates dropped.", pl2: "Product detection", pl2d: "YOLOv8n trained on SKU-110K: mAP50 0.913 on 500 validation images. Fine-tuning on our own frames is next.", pl3: "Brand reading", pl3d: "Qwen2-VL-2B on single-product crops: brand precision 0.94, recall 0.63 (whole frames: 1.00 / 0.30).", pl4: "Rule engine and report", pl4d: "Sprint 5",
     logStart: "Demo session started", logConfirm: "{u} confirmed \"{f}\" at {s}", logOver: "{u} overturned \"{f}\" at {s}", logDecide: "{u} set {s} to {d}", logThr: "Review threshold changed to {v}", logVisit: "{u} submitted a visit to {s}", logCo: "Company added: {c}", logUser: "User added: {c}",
-    mo: "Oct", none: "None", liveScan: "LIVE SCAN"
+    mo: "Oct", none: "None", liveScan: "LIVE SCAN",
+    kpi_front: "Front placement", kpi_front_d: "Shops keeping the agreed front spot", kpi_facings: "Agreed facings", kpi_facings_d: "Visible facings out of the number paid for",
+    kpi_eye: "Eye-level share", kpi_eye_d: "Your facings on the eye-level shelf", trendFront: "Front placement, last 8 weeks", facingsCol: "Facings",
+    f_facings: "Only {a} of {b} agreed facings visible", f_moved: "{b} found on {s}, not the paid front spot", f_okFacings: "{b} at the paid front spot: {a} of {n} facings",
+    paidTag: "PAID · FRONT", shelfDeal: "Shelf 2 front, {n} facings", newClient: "New client", facebook: "Facebook page", frontDeal: "paid front-of-shelf placement",
+    aisle: "DESSERTS & SNACKS"
   },
   bn: {
     demo: "ডেমো প্রোটোটাইপ · নমুনা ডেটা · AI ফলাফল সিমুলেটেড", view: "ভিউ", web: "ওয়েব", phone: "মোবাইল", switchRole: "ভূমিকা বদলান", theme: "থিম",
-    tagline: "ভিডিও প্রমাণসহ ফ্রিজ অডিট", heroP: "মার্চেন্ডাইজার ফ্রিজের ভিডিও করেন। ShelfSense ব্র্যান্ড, প্লেসমেন্ট ও স্টক যাচাই করে, আর অডিটর প্রতিটি ফলাফলের প্রমাণ দেখে তবেই দোকানকে পেমেন্ট বা জরিমানার সিদ্ধান্ত নেন।",
+    tagline: "ভিডিও প্রমাণসহ শেলফ ও ফ্রিজ অডিট", heroP: "মার্চেন্ডাইজার শেলফ বা ফ্রিজের ভিডিও করেন। ShelfSense ব্র্যান্ড, প্লেসমেন্ট ও স্টক যাচাই করে, আর অডিটর প্রতিটি ফলাফলের প্রমাণ দেখে তবেই দোকানকে পেমেন্ট বা জরিমানার সিদ্ধান্ত নেন।",
     signInAs: "যে হিসেবে প্রবেশ করবেন", role_merch: "মার্চেন্ডাইজার", role_auditor: "অডিটর", role_admin: "অ্যাডমিন",
     role_merch_d: "দোকানে যান, ফ্রিজের ভিডিও করুন, ফলাফল দেখুন", role_auditor_d: "ফলাফল যাচাই, প্রমাণ দেখা ও পেমেন্টের সিদ্ধান্ত", role_admin_d: "কোম্পানি, ইউজার, দোকান ও সেটিংস পরিচালনা",
     enter: "প্রবেশ", company: "কোম্পানি", language: "ভাষা", logout: "লগ আউট",
@@ -523,7 +540,7 @@ const TX = {
     trustExplain: "ভিডিও সত্যতা যাচাইয়ে ব্যর্থ হলে বা অডিটর আপনার ভিজিটের ফলাফল বাতিল করলে স্কোর কমে। পুরো ফ্রিজ, দোকানেই, সেদিনই ভিডিও করুন।",
     scoreGood: "ভালো অবস্থান", howToKeep: "স্কোর ভালো রাখতে", keep1: "উপর থেকে নিচ পর্যন্ত সব তাক ভিডিও করুন", keep2: "দরজার অ্যাসেট স্টিকার দেখান", keep3: "পুরোনো ভিডিও কখনো আবার দেবেন না", keep4: "ফোন স্থির রাখুন",
     plan: "প্ল্যান", fridges: "ফ্রিজ", addCompany: "কোম্পানি যোগ", companyName: "কোম্পানির নাম", brandsCsv: "ব্র্যান্ড, কমা দিয়ে", add: "যোগ করুন",
-    companiesP: "দোকানে ফ্রিজ দেয় এমন যেকোনো ব্র্যান্ড ShelfSense ব্যবহার করতে পারে। প্রতিটি কোম্পানি শুধু নিজের দোকান ও ফলাফল দেখে।",
+    companiesP: "ব্র্যান্ডেড ফ্রিজ বা শেলফের সামনের জায়গার জন্য দোকানকে টাকা দেয় এমন যেকোনো ব্র্যান্ড ShelfSense ব্যবহার করতে পারে। প্রতিটি কোম্পানি শুধু নিজের দোকান ও ফলাফল দেখে।", shelfId: "শেলফ আইডি",
     name: "নাম", role: "ভূমিকা", status: "অবস্থা", active: "সক্রিয়", addUser: "ইউজার যোগ", usersP: "মার্চেন্ডাইজার ভিজিট রেকর্ড করেন, অডিটর সিদ্ধান্ত নেন, অ্যাডমিন সেটআপ করেন।",
     ownerBrand: "ফ্রিজের ব্র্যান্ড", paidShelf: "পেইড তাক", fee: "মাসিক ফি",
     brandsP: "কুলার বিশুদ্ধতা এই তালিকা ব্যবহার করে। অন্য কোম্পানির ব্র্যান্ড থাকলে ফ্রিজ ব্যর্থ হয়।", brand: "ব্র্যান্ড", owner: "মালিক",
@@ -533,20 +550,25 @@ const TX = {
     pipeline: "পাইপলাইনের অবস্থা", activity: "কার্যক্রম", stageWorks: "চালু", stageTest: "পরীক্ষাধীন", stageNext: "এখনো তৈরি হয়নি",
     pl1: "ফ্রেম বের করা", pl1d: "৪ fps, Crete ঝাপসা ফিল্টার, pHash ডুপ্লিকেট। ১১৫টি সুপারমার্কেট ভিডিও: ৪,৪৯১টি ফ্রেম রাখা হয়েছে, ১৬৯টি ঝাপসা ও ৫৩৭টি একই ফ্রেম বাদ।", pl2: "পণ্য শনাক্তকরণ", pl2d: "SKU-110K-এ প্রশিক্ষিত YOLOv8n: ৫০০টি যাচাই ছবিতে mAP50 0.913। এরপর নিজেদের ফ্রেমে ফাইন-টিউন।", pl3: "ব্র্যান্ড চেনা", pl3d: "একক পণ্যের ক্রপে Qwen2-VL-2B: ব্র্যান্ড প্রিসিশন 0.94, রিকল 0.63 (পুরো ফ্রেমে 1.00 / 0.30)।", pl4: "রুল ইঞ্জিন ও রিপোর্ট", pl4d: "স্প্রিন্ট ৫",
     logStart: "ডেমো সেশন শুরু", logConfirm: "{u} নিশ্চিত করেছেন \"{f}\" ({s})", logOver: "{u} বাতিল করেছেন \"{f}\" ({s})", logDecide: "{u}: {s} → {d}", logThr: "যাচাই সীমা বদলে {v}", logVisit: "{u} ভিজিট জমা দিয়েছেন: {s}", logCo: "কোম্পানি যোগ হয়েছে: {c}", logUser: "ইউজার যোগ হয়েছে: {c}",
-    mo: "অক্টোবর", none: "নেই", liveScan: "লাইভ স্ক্যান"
+    mo: "অক্টোবর", none: "নেই", liveScan: "লাইভ স্ক্যান",
+    kpi_front: "সামনের প্লেসমেন্ট", kpi_front_d: "চুক্তির সামনের জায়গা রেখেছে এমন দোকান", kpi_facings: "চুক্তির ফেসিং", kpi_facings_d: "যতগুলোর টাকা দেওয়া হয়েছে তার মধ্যে দৃশ্যমান",
+    kpi_eye: "চোখের সমান তাকে অংশ", kpi_eye_d: "চোখের সমান তাকে আপনার ফেসিং", trendFront: "সামনের প্লেসমেন্ট, শেষ ৮ সপ্তাহ", facingsCol: "ফেসিং",
+    f_facings: "চুক্তির {b}টির মধ্যে মাত্র {a}টি ফেসিং দেখা যাচ্ছে", f_moved: "{b} পাওয়া গেছে {s}-এ, পেইড সামনের জায়গায় নয়", f_okFacings: "পেইড সামনের জায়গায় {b}: {n}টির মধ্যে {a}টি ফেসিং",
+    paidTag: "পেইড · সামনে", shelfDeal: "তাক ২-এর সামনে, {n}টি ফেসিং", newClient: "নতুন ক্লায়েন্ট", facebook: "ফেসবুক পেজ", frontDeal: "শেলফের সামনে পেইড প্লেসমেন্ট",
+    aisle: "ডেজার্ট ও স্ন্যাকস"
   }
 };
 
 /* ---------- state ---------- */
 const S = {
-  role: null, lang: "en", co: "coke", view: "", device: "web",
+  role: null, lang: "en", co: "nutricoco", view: "", device: "web",
   shop: null, frame: 0, sel: null, threshold: 0.85, showVerdict: true, fps: 4,
   decisions: {}, finals: {}, log: [], visit: null, myExtra: [],
   companies: COMPANIES.slice(),
   users: [
     { name: "Rahim Uddin", role: "merch", co: "coke" }, { name: "Jamal Hossain", role: "merch", co: "coke" },
     { name: "Tania Akter", role: "merch", co: "coke" }, { name: "Sumon Mia", role: "merch", co: "coke" },
-    { name: "Nadia Rahman", role: "auditor", co: "coke" }, { name: "Imran Kabir", role: "auditor", co: "transcom" },
+    { name: "Nadia Rahman", role: "auditor", co: "nutricoco" }, { name: "Imran Kabir", role: "auditor", co: "transcom" },
     { name: "Farzana Islam", role: "auditor", co: "akij" }, { name: "ShelfSense Admin", role: "admin", co: "—" }
   ]
 };
@@ -580,6 +602,7 @@ function data(co) {
   if (CACHE[co.id]) return CACHE[co.id];
   const r = rng(hashStr(co.id));
   const own = co.brands;
+  if (co.kind === "shelf") return (CACHE[co.id] = shelfData(co, r));
   const shops = SHOPS.map((s, i) => {
     const rival = co.rivals[i % co.rivals.length];
     const slots = [];
@@ -613,6 +636,37 @@ function data(co) {
   return CACHE[co.id];
 }
 
+/* open-shelf client (NutriCoco): the paid spot is the front of the eye-level shelf (shelf 2) */
+function shelfData(co, r) {
+  const own = co.brands[0];
+  const shops = SHOPS.map((s, i) => {
+    const slots = [];
+    for (let sh = 0; sh < 4; sh++) { const row = []; for (let k = 0; k < 6; k++) row.push(FILLER[(sh * 2 + k) % FILLER.length]); slots.push(row); }
+    for (let k = 0; k < AGREED; k++) slots[1][k] = own;
+    const f = []; const integ = { reused: null, coverage: 4, sticker: true };
+    if (s.sc === "competitor_review") { slots[1][3] = "Other dessert"; f.push({ id: "f1", type: "facings", a: 3, shelf: 1, slot: [3], conf: 0.71 }); }
+    if (s.sc === "competitor_confirmed") { slots[1][2] = slots[1][3] = "Other snack"; f.push({ id: "f1", type: "facings", a: 2, shelf: 1, slot: [2, 3], conf: 0.93 }); }
+    if (s.sc === "placement") {
+      for (let k = 0; k < AGREED; k++) { slots[1][k] = FILLER[k % FILLER.length]; slots[3][k] = own; }
+      f.push({ id: "f1", type: "placement", brand: own, shelf: 3, slot: [0, 1, 2, 3], conf: 0.88 });
+    }
+    if (s.sc === "oos") { slots[1][1] = slots[1][2] = slots[1][3] = null; f.push({ id: "f1", type: "oos", n: 3, shelf: 1, slot: [1, 2, 3], conf: 0.91 }); }
+    if (s.sc === "reused") integ.reused = 12;
+    if (s.sc === "coverage") { integ.coverage = 3; slots[3] = [null, null, null, null, null, null]; }
+    if (i % 3 === 1) f.push({ id: "f9", type: "price", shelf: null, slot: [], conf: 0.62 });
+    return {
+      id: co.id + "-" + i, i, en: s.en, bn: s.bn, aen: s.aen, abn: s.abn, rep: s.rep, day: s.day, hm: s.hm,
+      fridge: co.prefix + "-S" + String(100 + Math.floor(r() * 900)), slots, f, integ, sha: hex(r, 64), fee: co.fee + Math.round(r() * 4) * 100
+    };
+  });
+  const trendBase = [];
+  for (let w = 0; w < 7; w++) trendBase.push(0.62 + r() * 0.22);
+  return { shops, trendBase, avoided: 8 + Math.floor(r() * 8) };
+}
+function isShelf() { return curCo().kind === "shelf"; }
+function eyeShelf() { return isShelf() ? 1 : 0; }
+function facingsOf(shop) { const own = curCo().brands[0]; return Math.min(AGREED, shop.slots[1].filter(b => b === own).length); }
+
 function fStatus(shop, f) {
   if (f.type === "price") { const dd = S.decisions[shop.id + ":" + f.id]; return dd || (f.conf >= S.threshold ? "auto" : "review"); }
   const dd = S.decisions[shop.id + ":" + f.id];
@@ -624,8 +678,8 @@ function integrityFail(shop) { return shop.integ.reused !== null || shop.integ.c
 function hasViolation(shop, type) { return shop.f.some(f => f.type === type && counts(fStatus(shop, f))); }
 function suggest(shop) {
   if (integrityFail(shop)) return "reaudit";
-  if (shop.f.some(f => (f.type === "competitor" || f.type === "placement") && fStatus(shop, f) === "review")) return "pending";
-  if (hasViolation(shop, "competitor") || hasViolation(shop, "placement")) return "hold";
+  if (shop.f.some(f => (f.type === "competitor" || f.type === "placement" || f.type === "facings") && fStatus(shop, f) === "review")) return "pending";
+  if (hasViolation(shop, "competitor") || hasViolation(shop, "placement") || hasViolation(shop, "facings")) return "hold";
   return "pay";
 }
 function finalRec(shop) { return S.finals[shop.id] || suggest(shop); }
@@ -647,6 +701,12 @@ function kpis() {
     allF++; byBrand[b] = (byBrand[b] || 0) + 1; if (ownerOf(b) === co.id) ownF++;
   })));
   const review = D.shops.reduce((n, s) => n + s.f.filter(f => fStatus(s, f) === "review").length, 0);
+  if (co.kind === "shelf") {
+    const front = valid.filter(s => !hasViolation(s, "placement") && !hasViolation(s, "facings")).length;
+    const seen = valid.reduce((n, s) => n + facingsOf(s), 0);
+    const eye = valid.reduce((n, s) => n + facingsOf(s), 0) / (valid.length * 6);
+    return { purity: front / valid.length, placement: seen / (valid.length * AGREED), oos: gaps / slots, sos: eye, review, byBrand, allF, valid: valid.length };
+  }
   return { purity: pure / valid.length, placement: placed / valid.length, oos: gaps / slots, sos: ownF / allF, review, byBrand, allF, valid: valid.length };
 }
 function repStats(i) {
@@ -703,12 +763,14 @@ function stChip(st, type) {
 function fTitle(f) {
   const co = curCo();
   if (f.type === "competitor") return t("f_competitor", { b: f.brand });
+  if (f.type === "facings") return t("f_facings", { a: d(f.a), b: d(AGREED) });
+  if (f.type === "placement" && co.kind === "shelf") return t("f_moved", { b: f.brand, s: shelfLabel(f.shelf) });
   if (f.type === "placement") return t("f_placement", { b: f.brand });
   if (f.type === "oos") return t("f_oos", { n: d(f.n) });
   if (f.type === "price") return t("f_price");
   return "";
 }
-function shelfLabel(sh) { return t("shelf", { n: d(sh + 1) }) + (sh === 0 ? " · " + t("eye") : ""); }
+function shelfLabel(sh) { return t("shelf", { n: d(sh + 1) }) + (sh === eyeShelf() ? " · " + t("eye") : ""); }
 function integChip(s) {
   if (s.integ.reused !== null) return '<span class="chip bad">' + (S.lang === "bn" ? "পুরোনো ভিডিও" : "Reused video") + "</span>";
   if (s.integ.coverage < 4) return '<span class="chip warn">' + d(s.integ.coverage) + "/" + d(4) + (S.lang === "bn" ? " তাক" : " shelves") + "</span>";
@@ -722,9 +784,15 @@ function fridgeSVG(shop, opt) {
   const curShelf = opt.frame != null && frames[opt.frame] ? frames[opt.frame].shelf : null;
   let s = '<svg class="fridge" viewBox="0 0 300 460" role="img" aria-label="' + esc(L(shop) + " · " + shop.fridge) + '">';
   s += '<defs><pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" class="fr-hatch"/><line x1="0" y1="0" x2="0" y2="8" stroke="var(--line)" stroke-width="3"/></pattern></defs>';
-  s += '<rect x="6" y="6" width="288" height="448" rx="14" class="fr-body"/>';
-  s += '<path d="M20 6h260a14 14 0 0 1 14 14v30H6V20A14 14 0 0 1 20 6z" fill="' + mc + '"/>';
-  s += '<text x="150" y="35" text-anchor="middle" fill="#fff" font-family="Archivo, sans-serif" font-weight="800" font-size="17" letter-spacing="2">' + esc(main.toUpperCase()) + "</text>";
+  const shelfMode = co.kind === "shelf";
+  s += '<rect x="6" y="6" width="288" height="448" rx="' + (shelfMode ? 6 : 14) + '" class="fr-body"/>';
+  if (shelfMode) {
+    s += '<rect x="6" y="6" width="288" height="44" rx="6" class="fr-sign"/>';
+    s += '<text x="150" y="34" text-anchor="middle" class="fr-signtx">' + esc(t("aisle")) + "</text>";
+  } else {
+    s += '<path d="M20 6h260a14 14 0 0 1 14 14v30H6V20A14 14 0 0 1 20 6z" fill="' + mc + '"/>';
+    s += '<text x="150" y="35" text-anchor="middle" fill="#fff" font-family="Oxanium, sans-serif" font-weight="800" font-size="17" letter-spacing="2">' + esc(main.toUpperCase()) + "</text>";
+  }
   s += '<rect x="26" y="58" width="256" height="360" rx="6" class="fr-in"/>';
   for (let sh = 0; sh < 4; sh++) {
     const y0 = 62 + sh * 89;
@@ -738,14 +806,25 @@ function fridgeSVG(shop, opt) {
         const x = 36 + k * 41, b = shop.slots[sh][k];
         if (!b) { s += '<rect x="' + x + '" y="' + (y0 + 14) + '" width="30" height="66" rx="5" class="fr-gap"/>'; continue; }
         const c = (BRAND[b] || { c: "#888" }).c;
+        if (b === "Coco Fresh") { s += cupSVG(x, y0 + 8) + cupSVG(x, y0 + 44); continue; }
+        if (shelfMode) {
+          s += '<rect x="' + x + '" y="' + (y0 + 18) + '" width="30" height="62" rx="3" fill="' + c + '" opacity=".55"/>';
+          s += '<rect x="' + (x + 4) + '" y="' + (y0 + 34) + '" width="22" height="10" rx="2" fill="#fff" opacity=".25"/>';
+          continue;
+        }
         s += '<rect x="' + (x + 11) + '" y="' + (y0 + 6) + '" width="8" height="5" rx="1" fill="#2a2a2a"/>';
         s += '<path d="M' + (x + 11) + " " + (y0 + 11) + "h8l4 9v0H" + (x + 7) + 'z" fill="' + c + '"/>';
         s += '<rect x="' + x + '" y="' + (y0 + 19) + '" width="30" height="61" rx="6" fill="' + c + '"/>';
         s += '<rect x="' + x + '" y="' + (y0 + 40) + '" width="30" height="13" fill="#fff" opacity=".82"/>';
-        s += '<text x="' + (x + 15) + '" y="' + (y0 + 50) + '" text-anchor="middle" font-size="7" font-family="Archivo, sans-serif" font-weight="700" fill="' + c + '">' + esc(b.split(" ")[0].slice(0, 6).toUpperCase()) + "</text>";
+        s += '<text x="' + (x + 15) + '" y="' + (y0 + 50) + '" text-anchor="middle" font-size="7" font-family="Oxanium, sans-serif" font-weight="700" fill="' + c + '">' + esc(b.split(" ")[0].slice(0, 6).toUpperCase()) + "</text>";
       }
     }
     s += '<line x1="26" x2="282" y1="' + (y0 + 84) + '" y2="' + (y0 + 84) + '" class="fr-shelf"/>';
+    if (shelfMode) for (let k = 0; k < 6; k++) s += '<rect x="' + (40 + k * 41) + '" y="' + (y0 + 80) + '" width="22" height="8" rx="1" class="fr-tag"/>';
+    if (shelfMode && sh === 1) {
+      s += '<rect x="31" y="' + (y0 + 1) + '" width="' + (AGREED * 41 + 2) + '" height="80" rx="5" class="fr-paid"/>';
+      s += '<text x="36" y="' + (y0 + 12) + '" class="fr-paidtx">' + esc(t("paidTag")) + "</text>";
+    }
     if (curShelf !== null && curShelf !== sh) s += '<rect x="26" y="' + y0 + '" width="256" height="86" class="fr-dim"/>';
   }
   shop.f.forEach(f => {
@@ -767,6 +846,14 @@ function fridgeSVG(shop, opt) {
   s += '<text x="240" y="440" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#111">' + esc(shop.fridge) + "</text>";
   s += '<rect x="20" y="430" width="40" height="12" rx="6" fill="var(--line)"/>';
   return s + "</svg>";
+}
+
+/* a Coco Fresh pudding cup (illustration, not the real pack design) */
+function cupSVG(x, y) {
+  return '<rect x="' + (x + 1) + '" y="' + y + '" width="28" height="5" rx="2" fill="#6B4A2B"/>' +
+    '<path d="M' + (x + 3) + " " + (y + 5) + "h24l-3 30h-18z" + '" fill="#F2EADB"/>' +
+    '<rect x="' + (x + 4) + '" y="' + (y + 13) + '" width="22" height="9" fill="#6B4A2B" opacity=".9"/>' +
+    '<text x="' + (x + 15) + '" y="' + (y + 20) + '" text-anchor="middle" font-size="6" font-family="Oxanium, sans-serif" font-weight="700" fill="#F2EADB">COCO</text>';
 }
 
 function lineChart(vals) {
@@ -855,7 +942,7 @@ function renderLogin() {
     S.companies.map(c => '<option value="' + c.id + '"' + (c.id === S.co ? " selected" : "") + ">" + esc(coName(c)) + "</option>").join("") + "</select></div></div></div>" +
     '<div class="live"><div class="bar-top"><span class="rec">' + t("liveScan") + '</span><span>' + esc(demoShop.fridge) + " · " + d("00:03.2") + "</span></div>" +
     fridgeSVG(demoShop, { frame: null, sel: null, scan: true }) +
-    '<div class="readout"><div><span class="eyebrow">' + t("purity") + '</span><b data-count="' + Math.round(K.purity * 100) + '" data-suf="%">' + pct(K.purity) + '</b></div><div><span class="eyebrow">' + t("sos") + '</span><b data-count="' + Math.round(K.sos * 100) + '" data-suf="%">' + pct(K.sos) + '</b></div><div><span class="eyebrow">' + t("needsReview") + '</span><b data-count="' + K.review + '">' + d(K.review) + "</b></div></div></div>" +
+    '<div class="readout"><div><span class="eyebrow">' + t(isShelf() ? "kpi_front" : "purity") + '</span><b data-count="' + Math.round(K.purity * 100) + '" data-suf="%">' + pct(K.purity) + '</b></div><div><span class="eyebrow">' + t(isShelf() ? "kpi_eye" : "sos") + '</span><b data-count="' + Math.round(K.sos * 100) + '" data-suf="%">' + pct(K.sos) + '</b></div><div><span class="eyebrow">' + t("needsReview") + '</span><b data-count="' + K.review + '">' + d(K.review) + "</b></div></div></div>" +
     '<div class="rolewrap"><div class="eyebrow">' + t("signInAs") + '</div><div class="roles">' +
     card("merch", "cam", L(REPS[0])) + card("auditor", "shield", "Nadia Rahman") + card("admin", "gear", "ShelfSense Admin") + "</div></div></div>";
 }
@@ -872,15 +959,18 @@ VIEWS.overview = function () {
   const trend = D.trendBase.concat([K.purity]);
   const kpi = (lab, n, suf, desc, extra, cls) => '<div class="kpi ' + (cls || "") + '"><span class="eyebrow">' + lab + '</span><span class="v" data-count="' + n + '" data-suf="' + suf + '">' + d(n) + suf + '</span><span class="d">' + desc + "</span>" + (extra || "") + "</div>";
   const P = x => Math.round(x * 100);
+  const sh = isShelf();
   const brands = Object.keys(K.byBrand).sort((a, b) => K.byBrand[b] - K.byBrand[a]);
-  const bars = brands.map(b => { const own = ownerOf(b) === co.id; const p = K.byBrand[b] / K.allF; return '<div class="row"><span>' + esc(b) + ' <span class="muted small">' + (own ? "" : "· " + t("rival")) + '</span></span><div class="bar' + (own ? "" : " rival") + '"><i style="width:' + (p * 100).toFixed(1) + '%"></i></div><span class="num r">' + pct(p) + "</span></div>"; }).join("");
+  const bars = brands.map(b => { const own = ownerOf(b) === co.id; const p = K.byBrand[b] / K.allF; return '<div class="row"><span>' + esc(b) + ' <span class="muted small">' + (own || !ownerOf(b) ? "" : "· " + t("rival")) + '</span></span><div class="bar' + (own ? "" : " rival") + '"><i style="width:' + (p * 100).toFixed(1) + '%"></i></div><span class="num r">' + pct(p) + "</span></div>"; }).join("");
   return '<div class="pagehead"><div><h1>' + t("overview") + "</h1><p>" + t("overviewP", { co: esc(coName(co)) }) + "</p></div></div>" +
     '<div class="kpis">' +
-    kpi(t("purity"), P(K.purity), "%", t("purity_d")) + kpi(t("placement"), P(K.placement), "%", t("placement_d")) +
-    kpi(t("oos"), P(K.oos), "%", t("oos_d")) + kpi(t("sos"), P(K.sos), "%", t("sos_d")) +
+    (sh ? kpi(t("kpi_front"), P(K.purity), "%", t("kpi_front_d")) + kpi(t("kpi_facings"), P(K.placement), "%", t("kpi_facings_d")) +
+      kpi(t("oos"), P(K.oos), "%", t("oos_d")) + kpi(t("kpi_eye"), P(K.sos), "%", t("kpi_eye_d"))
+    : kpi(t("purity"), P(K.purity), "%", t("purity_d")) + kpi(t("placement"), P(K.placement), "%", t("placement_d")) +
+      kpi(t("oos"), P(K.oos), "%", t("oos_d")) + kpi(t("sos"), P(K.sos), "%", t("sos_d"))) +
     kpi(t("needsReview"), K.review, "", t("needsReview_d"), '<button data-act="nav" data-v="review">' + t("openQueue") + " →</button>", K.review ? "alert" : "") +
     "</div>" +
-    '<div class="grid2"><section class="panel"><header><h2>' + t("trend") + '</h2></header>' + lineChart(trend) + "</section>" +
+    '<div class="grid2"><section class="panel"><header><h2>' + t(sh ? "trendFront" : "trend") + '</h2></header>' + lineChart(trend) + "</section>" +
     '<section class="panel"><header><h2>' + t("sosByBrand") + '</h2><span class="small muted"><span class="chip acc">' + t("yours") + '</span> <span class="chip">' + t("rival") + "</span></span></header><div class=\"bars\">" + bars + "</div></section></div>" +
     shopTable(D.shops.slice(0, 8)) +
     '<section class="panel"><header><h2>' + t("savings") + '</h2><span class="num" style="font-family:var(--font-display);font-size:1.8rem;font-weight:700;color:var(--accent);text-shadow:0 0 20px var(--glow)" data-count="' + D.avoided + '">' + d(D.avoided) + '</span></header><p class="muted small" style="margin:0">' + t("savingsD") + "</p></section>";
@@ -888,9 +978,9 @@ VIEWS.overview = function () {
 function shopTable(shops, title) {
   const rows = shops.map(s => {
     const r = finalRec(s); const fail = integrityFail(s);
-    return '<tr class="click" data-act="shop" data-v="' + s.id + '"><td><strong>' + esc(L(s)) + '</strong><div class="small muted">' + esc(L(s, "a")) + '</div></td><td class="mono small">' + s.fridge + '</td><td class="small">' + esc(L(REPS[s.rep])) + '</td><td class="small num">' + when(s.day, s.hm) + '</td><td class="r num">' + (fail ? "—" : pct(purityOf(s))) + "</td><td>" + integChip(s) + "</td><td>" + recChip(r) + "</td></tr>";
+    return '<tr class="click" data-act="shop" data-v="' + s.id + '"><td><strong>' + esc(L(s)) + '</strong><div class="small muted">' + esc(L(s, "a")) + '</div></td><td class="mono small">' + s.fridge + '</td><td class="small">' + esc(L(REPS[s.rep])) + '</td><td class="small num">' + when(s.day, s.hm) + '</td><td class="r num">' + (fail ? "—" : isShelf() ? d(facingsOf(s)) + "/" + d(AGREED) : pct(purityOf(s))) + "</td><td>" + integChip(s) + "</td><td>" + recChip(r) + "</td></tr>";
   }).join("");
-  return '<section class="panel"><header><h2>' + (title || t("shops")) + '</h2></header><div class="tablewrap"><table><thead><tr><th>' + t("shop") + "</th><th>" + t("fridge") + "</th><th>" + t("rep") + "</th><th>" + t("lastAudit") + '</th><th class="r">' + t("purityCol") + "</th><th>" + t("integrity") + "</th><th>" + t("action") + "</th></tr></thead><tbody>" + rows + "</tbody></table></div></section>";
+  return '<section class="panel"><header><h2>' + (title || t("shops")) + '</h2></header><div class="tablewrap"><table><thead><tr><th>' + t("shop") + "</th><th>" + t(isShelf() ? "shelfId" : "fridge") + "</th><th>" + t("rep") + "</th><th>" + t("lastAudit") + '</th><th class="r">' + t(isShelf() ? "facingsCol" : "purityCol") + "</th><th>" + t("integrity") + "</th><th>" + t("action") + "</th></tr></thead><tbody>" + rows + "</tbody></table></div></section>";
 }
 VIEWS.shops = function () {
   if (S.shop) return auditView();
@@ -933,8 +1023,10 @@ function auditView() {
         '<button class="btn danger" data-act="dec" data-v="' + s.id + '" data-f="' + f.id + '" data-d="confirmed">' + t("confirm") + '</button><button class="btn" data-act="dec" data-v="' + s.id + '" data-f="' + f.id + '" data-d="overturned">' + t("overturn") + "</button>") + "</div>") +
       "</div></div>";
   });
-  if (compOk) fl += '<div class="finding ok"><div class="stripe"></div><div><div class="t">' + t("f_clean", { co: esc(coName(co)) }) + "</div></div></div>";
-  if (placementOk) fl += '<div class="finding ok"><div class="stripe"></div><div><div class="t">' + t("f_okPlacement", { b: esc(co.brands[0]) }) + '</div><div class="meta"><span>' + shelfLabel(0) + "</span></div></div></div>";
+  if (co.kind === "shelf") {
+    if (!s.f.some(f => f.type === "placement" || f.type === "facings" || f.type === "oos") && !fail) fl += '<div class="finding ok"><div class="stripe"></div><div><div class="t">' + t("f_okFacings", { b: esc(co.brands[0]), a: d(facingsOf(s)), n: d(AGREED) }) + '</div><div class="meta"><span>' + shelfLabel(1) + "</span></div></div></div>";
+  } else if (compOk) fl += '<div class="finding ok"><div class="stripe"></div><div><div class="t">' + t("f_clean", { co: esc(coName(co)) }) + "</div></div></div>";
+  if (placementOk && co.kind !== "shelf") fl += '<div class="finding ok"><div class="stripe"></div><div><div class="t">' + t("f_okPlacement", { b: esc(co.brands[0]) }) + '</div><div class="meta"><span>' + shelfLabel(0) + "</span></div></div></div>";
   const ck = (ok, txt, sub, plan) => '<div class="check ' + (plan ? "plan" : ok ? "ok" : "bad") + '"><span class="ic">' + (plan ? "○" : ok ? "✓" : "✕") + "</span><span>" + txt + (sub ? '<span class="mono">' + sub + "</span>" : "") + "</span></div>";
   const checks = ck(true, t("i_hash"), s.sha) +
     ck(s.integ.reused === null, s.integ.reused === null ? t("i_new") : t("i_reused", { d: when(s.integ.reused, "").replace(/, $/, "") })) +
@@ -983,7 +1075,7 @@ VIEWS.newVisit = function () {
         const fs = sh.f.filter(f => f.type !== "price");
         body += '<section class="panel" style="margin-top:12px"><header><h2>' + t("whatAiSaw") + '</h2><span class="small muted">' + t("readOnly") + "</span></header>" +
           (fs.length ? fs.map(f => '<div class="finding warn"><div class="stripe"></div><div><div class="t">' + esc(fTitle(f)) + '</div><div class="meta">' + (f.shelf !== null ? "<span>" + shelfLabel(f.shelf) + "</span>" : "") + "</div></div></div>").join("") :
-            '<div class="finding ok"><div class="stripe"></div><div><div class="t">' + t("f_clean", { co: esc(coName(curCo())) }) + "</div></div></div>") + "</section>";
+            '<div class="finding ok"><div class="stripe"></div><div><div class="t">' + (isShelf() ? t("f_okFacings", { b: esc(curCo().brands[0]), a: d(facingsOf(sh)), n: d(AGREED) }) : t("f_clean", { co: esc(coName(curCo())) })) + "</div></div></div>") + "</section>";
       } else if (!blur) body += '<p class="muted small">' + t("verdictHidden") + "</p>";
       body += '<div style="margin-top:12px"><button class="btn primary" data-act="newv">' + t("another") + "</button></div>";
     }
@@ -1018,7 +1110,9 @@ VIEWS.profile = function () {
 VIEWS.companies = function () {
   const rows = S.companies.map(c => {
     const D = data(c);
-    return '<tr><td><strong>' + esc(coName(c)) + '</strong><div class="small muted">' + esc(c.brands.join(", ")) + '</div></td><td><span class="chip ' + (c.plan === "Pilot" ? "acc" : "plain") + '">' + esc(c.plan) + '</span></td><td class="r num">' + d(D.shops.length) + '</td><td class="r num">' + d(D.shops.length) + '</td><td class="r num">' + d(S.users.filter(u => u.co === c.id).length) + "</td></tr>";
+    return '<tr><td><strong>' + esc(coName(c)) + "</strong>" + (c.isNew ? ' <span class="chip ok">' + t("newClient") + "</span>" : "") +
+      '<div class="small muted">' + esc(c.product ? (c.product[S.lang] || c.product.en) + " · " + t("frontDeal") : c.brands.join(", ")) + "</div>" +
+      (c.fb ? '<div class="small"><a href="' + esc(c.fb) + '" target="_blank" rel="noopener">' + t("facebook") + " ↗</a></div>" : "") + '</td><td><span class="chip ' + (c.plan === "Pilot" ? "acc" : "plain") + '">' + esc(c.plan) + '</span></td><td class="r num">' + d(D.shops.length) + '</td><td class="r num">' + d(D.shops.length) + '</td><td class="r num">' + d(S.users.filter(u => u.co === c.id).length) + "</td></tr>";
   }).join("");
   return '<div class="pagehead"><div><h1>' + t("companies") + "</h1><p>" + t("companiesP") + "</p></div></div>" +
     '<section class="panel"><div class="tablewrap"><table><thead><tr><th>' + t("company") + "</th><th>" + t("plan") + '</th><th class="r">' + t("shops") + '</th><th class="r">' + t("fridges") + '</th><th class="r">' + t("users") + "</th></tr></thead><tbody>" + rows + "</tbody></table></div></section>" +
@@ -1031,11 +1125,11 @@ VIEWS.users = function () {
 };
 VIEWS.contracts = function () {
   const co = curCo(); const D = data(co);
-  const rows = D.shops.map(s => '<tr><td><strong>' + esc(L(s)) + '</strong><div class="small muted">' + esc(L(s, "a")) + '</div></td><td class="mono small">' + s.fridge + "</td><td>" + esc(co.brands[0]) + "</td><td>" + shelfLabel(0) + " · " + esc(co.brands[0]) + '</td><td class="r num">৳ ' + d(s.fee.toLocaleString("en-US")) + '</td><td class="small">' + esc(L(REPS[s.rep])) + "</td></tr>").join("");
+  const rows = D.shops.map(s => '<tr><td><strong>' + esc(L(s)) + '</strong><div class="small muted">' + esc(L(s, "a")) + '</div></td><td class="mono small">' + s.fridge + "</td><td>" + esc(co.brands[0]) + "</td><td>" + (co.kind === "shelf" ? t("shelfDeal", { n: d(AGREED) }) : shelfLabel(0)) + " · " + esc(co.brands[0]) + '</td><td class="r num">৳ ' + d(s.fee.toLocaleString("en-US")) + '</td><td class="small">' + esc(L(REPS[s.rep])) + "</td></tr>").join("");
   return '<div class="pagehead"><div><h1>' + t("contracts") + "</h1><p>" + esc(coName(co)) + '</p></div></div><section class="panel"><div class="tablewrap"><table><thead><tr><th>' + t("shop") + "</th><th>" + t("fridge") + "</th><th>" + t("ownerBrand") + "</th><th>" + t("paidShelf") + '</th><th class="r">' + t("fee") + "</th><th>" + t("rep") + "</th></tr></thead><tbody>" + rows + "</tbody></table></div></section>";
 };
 VIEWS.brands = function () {
-  const rows = Object.keys(BRAND).map(b => { const c = S.companies.find(x => x.id === BRAND[b].owner); return '<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:' + BRAND[b].c + ';margin-right:8px"></span><strong>' + esc(b) + "</strong></td><td>" + (c ? esc(coName(c)) : "—") + "</td></tr>"; }).join("");
+  const rows = Object.keys(BRAND).filter(b => BRAND[b].owner).map(b => { const c = S.companies.find(x => x.id === BRAND[b].owner); return '<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:' + BRAND[b].c + ';margin-right:8px"></span><strong>' + esc(b) + "</strong></td><td>" + (c ? esc(coName(c)) : "—") + "</td></tr>"; }).join("");
   return '<div class="pagehead"><div><h1>' + t("brands") + "</h1><p>" + t("brandsP") + '</p></div></div><section class="panel"><div class="tablewrap"><table><thead><tr><th>' + t("brand") + "</th><th>" + t("owner") + "</th></tr></thead><tbody>" + rows + "</tbody></table></div></section>";
 };
 VIEWS.settings = function () {
@@ -1063,7 +1157,9 @@ function reportJSON(s) {
     visit: "2026-10-" + s.day + "T" + s.hm + ":00+06:00",
     video: { sha256: s.sha, keyframes: FRAMES.slice(0, s.integ.coverage).map(f => ({ t: f.t, shelf: f.shelf + 1 })) },
     integrity: { reused_footage: s.integ.reused !== null, shelves_filmed: s.integ.coverage + "/4", asset_sticker_match: s.integ.sticker, gps: "planned" },
-    kpis: { cooler_purity: +purityOf(s).toFixed(2), paid_placement_ok: !hasViolation(s, "placement") },
+    kpis: co.kind === "shelf"
+      ? { audit_type: "open_shelf_front_placement", agreed_facings: AGREED, visible_facings: facingsOf(s), front_placement_ok: !hasViolation(s, "placement") && !hasViolation(s, "facings") }
+      : { audit_type: "branded_fridge", cooler_purity: +purityOf(s).toFixed(2), paid_placement_ok: !hasViolation(s, "placement") },
     findings: s.f.map(f => ({ type: f.type, brand: f.brand || null, shelf: f.shelf === null ? null : f.shelf + 1, keyframe_t: f.shelf === null ? null : fTime(f), confidence: f.conf, status: fStatus(s, f) })),
     recommendation: suggest(s), auditor_decision: S.finals[s.id] || null
   }, null, 2);
@@ -1105,7 +1201,7 @@ document.addEventListener("click", e => {
   if (a === "device") { S.device = v; store.set("device", v); render(); return; }
   if (a === "lang") { S.lang = v; store.set("lang", v); render(); return; }
   if (a === "theme") { if (v === "system") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", v); renderDemo(); return; }
-  if (a === "login") { S.role = v; if (v === "merch") S.co = "coke"; go(NAV[v][0][0]); return; }
+  if (a === "login") { S.role = v; go(NAV[v][0][0]); return; }
   if (a === "logout") { S.role = null; S.view = ""; S.shop = null; render(); return; }
   if (a === "nav") { go(v); return; }
   if (a === "shop") { S.view = "shops"; S.shop = v; S.frame = 0; S.sel = null; render(); document.getElementById("app").scrollTop = 0; return; }
@@ -1180,7 +1276,7 @@ document.addEventListener("keydown", e => {
 const h = (location.hash || "").replace("#", "");
 if (h === "merchandiser") S.role = "merch"; else if (h === "auditor") S.role = "auditor"; else if (h === "admin") S.role = "admin";
 if (S.role) S.view = NAV[S.role][0][0];
-if (h === "evidence") { S.role = "auditor"; S.view = "shops"; S.shop = "coke-1"; S.frame = 1; S.sel = "f1"; }
+if (h === "evidence") { S.role = "auditor"; S.view = "shops"; S.shop = S.co + "-1"; S.frame = 1; S.sel = "f1"; }
 render();
 })();
 </script>
