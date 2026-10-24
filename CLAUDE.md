@@ -209,6 +209,17 @@ runs). Lessons:
 - Scripts that use data-loader workers must have `if __name__ == "__main__":` and run from a file
   (piped stdin scripts hang on Windows).
 
+## Dashboard mockup (Report 3 demo, due 2026-11-01)
+- `app/mockup/index.html`: one-file clickable prototype, no build step. Published (private, share from
+  the page's Share menu): https://claude.ai/artifact/4ABAHPuETCMeTsr6eMUGmd
+- Three roles: Merchandiser (route, record/upload video, own visits, trust score), Auditor (KPIs,
+  review queue, evidence view with keyframes + boxes + integrity checks, Pay/Hold/Re-audit decision,
+  JSON report), Admin (companies, users, shops & contracts, brand owners, settings, pipeline status).
+- English/Bangla toggle (Bangla digits too), web and phone layouts, company switcher (any brand can be
+  a client). All shops/audits are **sample data** labelled as demo; only the System page shows real
+  pipeline numbers. Admin setting "Show AI results to merchandisers" (on by default).
+- Class every Sunday shows weekly progress; reports are due on other days.
+
 ## Weekly reports
 - Written in LaTeX on Overleaf using the course template (IEEEtran, onecolumn journal), with `ref.bib`.
 - Title: `[CSE499A(13) - Group\#1] Weekly Report: ShelfSense: AI-Based Retail Merchandising Audit`
