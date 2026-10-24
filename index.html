@@ -1,0 +1,1029 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>html{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!important}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+<title>ShelfSense Audit Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: a demo control strip, then the app itself. Wide screens get a side nav; narrow screens (or the phone preview) get a bottom tab bar. */
+:root {
+  --bg: #EEF1F0;
+  --surface: #FFFFFF;
+  --surface-2: #E4E9E7;
+  --line: #CFD8D5;
+  --fg: #15201C;
+  --muted: #5A6A65;
+  --accent: #2742A8;
+  --accent-soft: #E3E8F8;
+  --on-accent: #FFFFFF;
+  --ok: #1E7A4C;
+  --ok-soft: #DFF1E7;
+  --warn: #A86A12;
+  --warn-soft: #F8ECD6;
+  --bad: #C0342A;
+  --bad-soft: #F8E1DE;
+  --fridge-in: #E6EEF3;
+  --device: #1B2420;
+  --font-display: "Archivo", "Noto Sans Bengali", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", "Noto Sans Bengali", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E1412; --surface: #151D1A; --surface-2: #1D2824; --line: #2C3934; --fg: #E5EDEA; --muted: #95A59F;
+    --accent: #8FA3FF; --accent-soft: #232C52; --on-accent: #0E1412;
+    --ok: #4FC48C; --ok-soft: #173326; --warn: #E2AA4E; --warn-soft: #3A2C14; --bad: #F2766B; --bad-soft: #3D1C19;
+    --fridge-in: #1A2630; --device: #000000; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E1412; --surface: #151D1A; --surface-2: #1D2824; --line: #2C3934; --fg: #E5EDEA; --muted: #95A59F;
+  --accent: #8FA3FF; --accent-soft: #232C52; --on-accent: #0E1412;
+  --ok: #4FC48C; --ok-soft: #173326; --warn: #E2AA4E; --warn-soft: #3A2C14; --bad: #F2766B; --bad-soft: #3D1C19;
+  --fridge-in: #1A2630; --device: #000000; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 14px; line-height: 1.45; }
+html[lang="bn"] body { font-family: "Noto Sans Bengali", "IBM Plex Sans", system-ui, sans-serif; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: 1.6rem; font-weight: 800; }
+h2 { font-size: 1.15rem; font-weight: 700; }
+h3 { font-size: 0.95rem; font-weight: 700; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.num { font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+.small { font-size: 0.8rem; }
+.eyebrow { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+
+/* demo strip */
+.demo {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px;
+  padding-block: 8px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: var(--surface-2); border-bottom: 1px solid var(--line); font-size: 0.8rem;
+}
+.demo .tag { font-family: var(--font-mono); font-weight: 500; color: var(--warn); }
+.demo .spacer { flex: 1; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg button { border: 0; background: transparent; padding: 4px 10px; font-size: 0.8rem; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+
+.stage { display: flex; justify-content: center; padding-block: 16px 32px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.app { width: 100%; max-width: 1280px; container-type: inline-size; container-name: app; background: var(--bg); }
+.stage.phone .app { width: 390px; max-width: 100%; height: 800px; max-height: 85vh; overflow-y: auto; border: 10px solid var(--device); border-radius: 38px; }
+
+/* app header */
+.apphead { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.stage.phone .apphead { border-radius: 0; border-width: 0 0 1px 0; position: sticky; top: 0; z-index: 5; }
+.logo { display: flex; align-items: center; gap: 8px; font-family: var(--font-display); font-weight: 800; font-size: 1.1rem; }
+.logo svg { width: 26px; height: 26px; }
+.apphead .grow { flex: 1; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; background: var(--surface-2); color: var(--fg); white-space: nowrap; }
+.chip.ok { background: var(--ok-soft); color: var(--ok); }
+.chip.warn { background: var(--warn-soft); color: var(--warn); }
+.chip.bad { background: var(--bad-soft); color: var(--bad); }
+.chip.acc { background: var(--accent-soft); color: var(--accent); }
+.chip.plain { background: transparent; border: 1px solid var(--line); }
+select.inp, input.inp { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 6px 10px; min-width: 0; max-width: 100%; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 7px 14px; font-weight: 600; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn.good { background: var(--ok); border-color: var(--ok); color: var(--surface); }
+.btn.danger { color: var(--bad); border-color: var(--bad); }
+.btn.ghost { border-color: transparent; background: transparent; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* frame */
+.body { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 16px; margin-top: 16px; }
+.side { display: flex; flex-direction: column; gap: 2px; position: sticky; top: 16px; align-self: start; }
+.side button { text-align: left; border: 0; background: transparent; padding: 9px 12px; border-radius: 8px; font-weight: 500; display: flex; align-items: center; gap: 10px; }
+.side button svg, .tabbar button svg { width: 18px; height: 18px; flex: none; }
+.side button:hover { background: var(--surface-2); }
+.side button[aria-current="page"] { background: var(--surface); color: var(--accent); font-weight: 600; box-shadow: inset 3px 0 0 var(--accent); }
+.side .role { padding: 4px 12px 10px; }
+main { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.tabbar { display: none; }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; min-width: 0; }
+.panel > header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; margin-bottom: 12px; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.grid-ev { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 16px; }
+.pagehead { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 8px 16px; }
+.pagehead p { margin: 4px 0 0; color: var(--muted); max-width: 65ch; }
+
+.kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.kpi .v { font-family: var(--font-display); font-size: 1.9rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.kpi .d { font-size: 0.75rem; color: var(--muted); }
+.kpi.alert { border-color: var(--warn); background: var(--warn-soft); }
+.kpi.alert .v { color: var(--warn); }
+.kpi button { all: unset; cursor: pointer; font-size: 0.75rem; color: var(--accent); font-weight: 600; }
+
+.tablewrap { overflow-x: auto; margin: 0 -16px; padding: 0 16px; }
+table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+th { text-align: left; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+tr.click { cursor: pointer; }
+tr.click:hover td { background: var(--surface-2); }
+td.r, th.r { text-align: right; }
+
+.bar { height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.bar > i { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+.bar.rival > i { background: var(--muted); }
+.bars { display: flex; flex-direction: column; gap: 9px; }
+.bars .row { display: grid; grid-template-columns: 110px minmax(0, 1fr) 46px; gap: 10px; align-items: center; font-size: 0.82rem; }
+
+svg.chart { width: 100%; height: auto; display: block; }
+svg.chart .grid { stroke: var(--line); stroke-width: 1; }
+svg.chart .lbl { fill: var(--muted); font-size: 11px; font-family: var(--font-mono); }
+svg.chart .line { stroke: var(--accent); stroke-width: 2.5; fill: none; }
+svg.chart .area { fill: var(--accent); opacity: 0.12; }
+svg.chart .dot { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
+svg.chart .val { fill: var(--fg); font-size: 12px; font-weight: 600; font-family: var(--font-mono); }
+
+/* fridge evidence */
+svg.fridge { width: 100%; max-width: 340px; height: auto; display: block; margin: 0 auto; }
+.fr-body { fill: var(--surface-2); stroke: var(--line); stroke-width: 2; }
+.fr-in { fill: var(--fridge-in); }
+.fr-shelf { stroke: var(--line); stroke-width: 3; }
+.fr-gap { fill: none; stroke: var(--muted); stroke-dasharray: 4 3; stroke-width: 1.5; }
+.fr-dim { fill: var(--surface); opacity: 0.62; }
+.fr-num { fill: var(--muted); font-family: var(--font-mono); font-size: 11px; }
+.fr-hatch { fill: var(--surface-2); }
+.fr-nf { fill: var(--muted); font-size: 13px; font-weight: 600; }
+.box { fill: none; stroke-width: 2.5; }
+.box.bad { stroke: var(--bad); } .box.warn { stroke: var(--warn); stroke-dasharray: 6 3; } .box.off { stroke: var(--muted); stroke-dasharray: 2 3; }
+.box.sel { stroke-width: 4; }
+.boxlbl { font-family: var(--font-mono); font-size: 11px; font-weight: 500; }
+.boxlbl.bad { fill: var(--bad); } .boxlbl.warn { fill: var(--warn); } .boxlbl.off { fill: var(--muted); }
+.framestrip { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
+.framestrip button { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 4px 8px; font-family: var(--font-mono); font-size: 0.75rem; }
+.framestrip button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+.finding { display: grid; grid-template-columns: 4px minmax(0, 1fr); gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.finding:last-child { border-bottom: 0; }
+.finding .stripe { border-radius: 2px; background: var(--line); }
+.finding.bad .stripe { background: var(--bad); } .finding.warn .stripe { background: var(--warn); } .finding.ok .stripe { background: var(--ok); }
+.finding .t { font-weight: 600; cursor: pointer; }
+.finding .meta { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-top: 4px; font-size: 0.78rem; color: var(--muted); }
+.finding .acts { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.finding.selected .t { color: var(--accent); }
+
+.checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
+.check { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: 8px; background: var(--surface-2); font-size: 0.8rem; min-width: 0; }
+.check .ic { font-weight: 700; flex: none; width: 16px; text-align: center; }
+.check.ok .ic { color: var(--ok); } .check.bad { background: var(--bad-soft); } .check.bad .ic { color: var(--bad); } .check.plan .ic { color: var(--muted); }
+.check .mono { word-break: break-all; font-size: 0.7rem; color: var(--muted); display: block; }
+
+/* the audit stamp */
+.stampwrap { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; }
+.stamp { font-family: var(--font-mono); font-weight: 500; text-transform: uppercase; letter-spacing: 0.12em; font-size: 1rem; padding: 8px 16px; border: 3px double currentColor; border-radius: 6px; transform: rotate(-3deg); display: inline-block; }
+html[lang="bn"] .stamp { letter-spacing: 0.02em; font-family: "Noto Sans Bengali", var(--font-mono); font-weight: 700; }
+.stamp.pay { color: var(--ok); } .stamp.hold { color: var(--bad); } .stamp.reaudit { color: var(--warn); } .stamp.pending { color: var(--muted); }
+.decide { display: flex; flex-wrap: wrap; gap: 8px; }
+.decide button[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+
+/* merchandiser */
+.route { display: flex; flex-direction: column; }
+.route .stop { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.route .stop:last-child { border-bottom: 0; }
+.route .n { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 0.8rem; background: var(--surface-2); }
+.route .stop.done .n { background: var(--ok-soft); color: var(--ok); }
+.drop { border: 2px dashed var(--line); border-radius: 12px; padding: 20px; text-align: center; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.drop.has { border-color: var(--ok); border-style: solid; background: var(--ok-soft); }
+.drop .row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.ck { display: flex; gap: 8px; align-items: center; padding: 6px 0; }
+.ck input { width: 18px; height: 18px; accent-color: var(--accent); }
+.steps { display: flex; flex-direction: column; gap: 8px; }
+.steps .s { display: flex; gap: 10px; align-items: center; color: var(--muted); }
+.steps .s.done { color: var(--fg); } .steps .s.done .ic { color: var(--ok); }
+.steps .s.now { color: var(--accent); font-weight: 600; }
+.steps .ic { width: 18px; text-align: center; font-weight: 700; }
+.result { border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 6px; }
+.result.ok { background: var(--ok-soft); } .result.bad { background: var(--bad-soft); }
+.result .big { font-family: var(--font-display); font-size: 1.4rem; font-weight: 800; }
+.result.ok .big { color: var(--ok); } .result.bad .big { color: var(--bad); }
+.score { font-family: var(--font-display); font-size: 3.2rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field label { font-size: 0.75rem; font-weight: 600; color: var(--muted); }
+.form { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; align-items: end; }
+.switch { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.switch:last-child { border-bottom: 0; }
+.switch p { margin: 2px 0 0; color: var(--muted); font-size: 0.8rem; max-width: 60ch; }
+.toggle { position: relative; width: 42px; height: 24px; flex: none; }
+.toggle input { opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; position: absolute; inset: 0; z-index: 1; }
+.toggle span { position: absolute; inset: 0; border-radius: 12px; background: var(--line); transition: background .15s; }
+.toggle span::after { content: ""; position: absolute; width: 18px; height: 18px; top: 3px; left: 3px; border-radius: 50%; background: var(--surface); transition: transform .15s; }
+.toggle input:checked + span { background: var(--accent); }
+.toggle input:checked + span::after { transform: translateX(18px); }
+input[type="range"] { accent-color: var(--accent); width: 100%; }
+.log { display: flex; flex-direction: column; gap: 8px; font-size: 0.82rem; }
+.log div { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 10px; }
+
+/* login */
+.login { max-width: 860px; margin: 24px auto; display: flex; flex-direction: column; gap: 20px; }
+.login .hero { display: flex; flex-direction: column; gap: 8px; }
+.login .hero h1 { font-size: 2.3rem; }
+.login .hero p { margin: 0; color: var(--muted); max-width: 60ch; font-size: 1rem; }
+.roles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.rolecard { text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+.rolecard:hover { border-color: var(--accent); }
+.rolecard .who { font-size: 0.8rem; color: var(--muted); }
+.rolecard .go { color: var(--accent); font-weight: 600; font-size: 0.85rem; margin-top: auto; }
+.rolecard svg { width: 28px; height: 28px; color: var(--accent); }
+.login .opts { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+
+/* modal */
+.modal { position: fixed; inset: 0; background: rgba(10, 15, 13, 0.55); display: grid; place-items: center; z-index: 50; padding: 16px; }
+.modal .box2 { background: var(--surface); border-radius: 12px; width: min(720px, 100%); max-height: 85vh; display: flex; flex-direction: column; border: 1px solid var(--line); }
+.modal header { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.modal pre { margin: 0; padding: 16px; overflow: auto; font-family: var(--font-mono); font-size: 0.75rem; white-space: pre; }
+
+.empty { padding: 24px; text-align: center; color: var(--muted); }
+.notice { padding: 10px 12px; border-radius: 8px; background: var(--accent-soft); font-size: 0.82rem; }
+
+/* narrow: app container below 760px */
+@container app (max-width: 760px) {
+  .body { grid-template-columns: minmax(0, 1fr); margin-top: 12px; }
+  .side { display: none; }
+  .tabbar {
+    display: flex; position: sticky; bottom: 0; z-index: 5; background: var(--surface); border-top: 1px solid var(--line);
+    padding-bottom: env(safe-area-inset-bottom, 0px); margin-top: 16px;
+  }
+  .tabbar button { flex: 1; border: 0; background: transparent; padding: 8px 2px 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 0.68rem; color: var(--muted); min-width: 0; }
+  .tabbar button span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .tabbar button[aria-current="page"] { color: var(--accent); font-weight: 600; }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpis .kpi:first-child { grid-column: 1 / -1; }
+  .grid2, .grid-ev { grid-template-columns: minmax(0, 1fr); }
+  .roles { grid-template-columns: minmax(0, 1fr); }
+  .login .hero h1 { font-size: 1.8rem; }
+  .apphead .who-name { display: none; }
+  .hide-narrow { display: none; }
+}
+.stage.phone main { padding: 0 12px; }
+.stage.phone .login { padding: 0 12px; margin-top: 16px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+</head>
+<body>
+<div class="demo" id="demo"></div>
+<div class="stage" id="stage"><div class="app" id="app"></div></div>
+<div id="modal"></div>
+
+<script>
+(function () {
+"use strict";
+
+/* ---------- reference data ---------- */
+const BRAND = {
+  "Coca-Cola": { c: "#D7262E", owner: "coke" }, "Sprite": { c: "#2E9B4E", owner: "coke" }, "Fanta": { c: "#F28C1B", owner: "coke" }, "Kinley": { c: "#6FB7E0", owner: "coke" },
+  "Pepsi": { c: "#1F4FB8", owner: "transcom" }, "7Up": { c: "#3DAF5B", owner: "transcom" }, "Mirinda": { c: "#F07A1F", owner: "transcom" }, "Mountain Dew": { c: "#9CC63B", owner: "transcom" },
+  "Mojo": { c: "#7A1F1F", owner: "akij" }, "Clemon": { c: "#E6C229", owner: "akij" }, "Speed": { c: "#2B2B3A", owner: "akij" },
+  "Pran Up": { c: "#58B04A", owner: "pran" }, "Frutika": { c: "#E99A2C", owner: "pran" }, "Pran Cola": { c: "#8E2430", owner: "pran" }
+};
+const COMPANIES = [
+  { id: "coke", name: { en: "Coca-Cola Bangladesh", bn: "কোকা-কোলা বাংলাদেশ" }, prefix: "CC", brands: ["Coca-Cola", "Sprite", "Fanta", "Kinley"], rivals: ["Mojo", "Pepsi"], plan: "Pilot", fee: 1500 },
+  { id: "transcom", name: { en: "Transcom Beverages (Pepsi)", bn: "ট্রান্সকম বেভারেজেস (পেপসি)" }, prefix: "TB", brands: ["Pepsi", "7Up", "Mirinda", "Mountain Dew"], rivals: ["Coca-Cola", "Clemon"], plan: "Pilot", fee: 1400 },
+  { id: "akij", name: { en: "Akij Food & Beverage", bn: "আকিজ ফুড অ্যান্ড বেভারেজ" }, prefix: "AK", brands: ["Mojo", "Clemon", "Speed"], rivals: ["Pepsi", "Sprite"], plan: "Trial", fee: 1200 },
+  { id: "pran", name: { en: "PRAN Beverage", bn: "প্রাণ বেভারেজ" }, prefix: "PR", brands: ["Pran Up", "Frutika", "Pran Cola"], rivals: ["Coca-Cola", "Mojo"], plan: "Trial", fee: 1100 }
+];
+const SHOPS = [
+  { en: "Karim Store", bn: "করিম স্টোর", aen: "Dhanmondi 27", abn: "ধানমন্ডি ২৭", rep: 0, sc: "clean", day: 25, hm: "10:12" },
+  { en: "Rafi Traders", bn: "রাফি ট্রেডার্স", aen: "Mirpur 10", abn: "মিরপুর ১০", rep: 1, sc: "competitor_review", day: 25, hm: "09:40" },
+  { en: "Nur Mart", bn: "নূর মার্ট", aen: "Uttara Sector 7", abn: "উত্তরা সেক্টর ৭", rep: 1, sc: "reused", day: 24, hm: "16:05" },
+  { en: "Bismillah General Store", bn: "বিসমিল্লাহ জেনারেল স্টোর", aen: "Mohammadpur", abn: "মোহাম্মদপুর", rep: 2, sc: "placement", day: 24, hm: "12:30" },
+  { en: "Shapla Departmental", bn: "শাপলা ডিপার্টমেন্টাল", aen: "Gulshan 2", abn: "গুলশান ২", rep: 0, sc: "clean", day: 25, hm: "11:02" },
+  { en: "Maa Enterprise", bn: "মা এন্টারপ্রাইজ", aen: "Banani", abn: "বনানী", rep: 3, sc: "oos", day: 23, hm: "15:47" },
+  { en: "Hasan Mudi Dokan", bn: "হাসান মুদি দোকান", aen: "Farmgate", abn: "ফার্মগেট", rep: 1, sc: "coverage", day: 23, hm: "10:20" },
+  { en: "Sonali Store", bn: "সোনালী স্টোর", aen: "Bashundhara R/A", abn: "বসুন্ধরা আ/এ", rep: 2, sc: "competitor_confirmed", day: 22, hm: "17:15" }
+];
+const REPS = [
+  { en: "Rahim Uddin", bn: "রহিম উদ্দিন", visits: 42, fails: 0, over: 0 },
+  { en: "Jamal Hossain", bn: "জামাল হোসেন", visits: 38, fails: 3, over: 2 },
+  { en: "Tania Akter", bn: "তানিয়া আক্তার", visits: 35, fails: 1, over: 1 },
+  { en: "Sumon Mia", bn: "সুমন মিয়া", visits: 29, fails: 0, over: 1 }
+];
+const FRAMES = [{ t: "00:01.4", shelf: 0 }, { t: "00:03.2", shelf: 1 }, { t: "00:05.6", shelf: 2 }, { t: "00:07.0", shelf: 3 }];
+
+/* ---------- text ---------- */
+const TX = {
+  en: {
+    demo: "Demo prototype · sample data · AI results are simulated", view: "View", web: "Web", phone: "Phone", switchRole: "Switch role", theme: "Theme",
+    tagline: "Fridge audits backed by video evidence", heroP: "Merchandisers film the fridge. ShelfSense checks brands, placement and stock, and the auditor sees the proof behind every finding before a shop is paid or penalised.",
+    signInAs: "Sign in as", role_merch: "Merchandiser", role_auditor: "Auditor", role_admin: "Admin",
+    role_merch_d: "Visit shops, record fridge videos, see your results", role_auditor_d: "Review findings, check evidence, decide payouts", role_admin_d: "Manage companies, users, shops and settings",
+    enter: "Enter", company: "Company", language: "Language", logout: "Log out",
+    today: "Today", newVisit: "New visit", myVisits: "My visits", profile: "My score",
+    overview: "Overview", review: "Review queue", shops: "Shops", merchs: "Merchandisers",
+    companies: "Companies", users: "Users", contracts: "Shops & contracts", brands: "Brand owners", settings: "Settings", system: "System",
+    purity: "Cooler purity", purity_d: "Fridges holding only your brands", placement: "Paid placement", placement_d: "Agreed brand on the agreed shelf",
+    oos: "Out of stock", oos_d: "Empty slots in filmed shelves", sos: "Share of shelf", sos_d: "Your facings out of all facings",
+    needsReview: "Needs review", needsReview_d: "Findings waiting for a person", openQueue: "Open queue",
+    overviewP: "{co} · audits from 22–25 Oct 2026. Shops that fail an integrity check are left out of the KPIs until they are re-audited.",
+    savings: "Re-visits avoided this month", savingsD: "Shops cleared on video evidence alone, without sending a second auditor (sample estimate).",
+    trend: "Cooler purity, last 8 weeks", sosByBrand: "Facings by brand", yours: "Yours", rival: "Competitor", week: "Wk",
+    shop: "Shop", area: "Area", fridge: "Fridge", lastAudit: "Last audit", integrity: "Integrity", action: "Recommendation", rep: "Merchandiser", purityCol: "Purity",
+    pay: "Pay incentive", hold: "Hold payment", reaudit: "Re-audit", pending: "Waiting for review", ok: "OK",
+    visits: "Visits", intFails: "Integrity fails", overturned: "Overturned", trust: "Trust",
+    merchsP: "Trust falls when a merchandiser's videos fail integrity checks or their findings are overturned. A low score is a reason to re-check that person's shops.",
+    findings: "Findings", conf: "confidence", confirm: "Confirm", overturn: "Overturn", undo: "Undo",
+    f_competitor: "Competitor brand: {b}", f_placement: "Paid shelf not filled with {b}", f_oos: "{n} empty slots", f_price: "Price tags not found", f_okPlacement: "Paid shelf holds {b}", f_clean: "Only {co} brands in the fridge",
+    shelf: "Shelf {n}", eye: "eye level",
+    st_auto: "Auto-confirmed", st_review: "Needs review", st_confirmed: "Confirmed by auditor", st_overturned: "Overturned by auditor", st_info: "For information",
+    i_hash: "SHA-256 recorded", i_new: "Not seen in earlier audits", i_reused: "Same footage as audit of {d}", i_sticker: "Asset sticker reads {id}", i_cov: "Shelves filmed: {a} of {b}", i_date: "File date matches visit", i_gps: "GPS check-in (planned)",
+    evidence: "Evidence", frames: "Keyframes", notFilmed: "Not filmed",
+    aiSuggests: "ShelfSense suggests", decision: "Your decision", exportJson: "View JSON report", copy: "Copy", copied: "Copied", close: "Close", back: "All shops",
+    reviewP: "The AI never accuses a shop on its own. Any finding below {th} confidence waits here until a person has looked at the evidence.",
+    reviewEmpty: "Nothing waiting. Every finding has been checked.", reviewOpen: "Check evidence",
+    integrityFail: "Integrity check failed", integrityFailD: "Findings from this video are not used. Send a different merchandiser.",
+    hello: "Good morning, {n}", route: "Today's route", done: "Done", pendingV: "Pending", startVisit: "Start visit", visitsDone: "{a} of {b} shops done",
+    selectShop: "Shop", uploadVideo: "Record or upload the fridge video", uploadHint: "Open the door and film every shelf from top to bottom. Aim for 15–30 seconds.", useSample: "Use sample clip", chooseFile: "Choose video",
+    checklist: "Before you submit", ck1: "Fridge door is open", ck2: "Every shelf is in the video", ck3: "Asset sticker is visible",
+    submit: "Submit for audit", p1: "Checking video quality", p2: "Picking sharp keyframes", p3: "Finding products and gaps", p4: "Reading brands", p5: "Running integrity checks",
+    accepted: "Accepted", rerecord: "Re-record needed", acceptedNote: "The video is good. Results have gone to the auditor.", blurNote: "Too blurry: {a} of {b} frames are over the blur limit. Hold the phone steady and film again.",
+    whatAiSaw: "What ShelfSense found", readOnly: "Read only. Only an auditor can change these results.", verdictHidden: "Your company shows results to auditors only.", another: "Record another visit",
+    tipBlur: "Tip for the demo: a file name containing \"blur\" shows the re-record case.", justNow: "Just now", processed: "Processed", underReview: "Under review", rerecorded: "Re-record",
+    trustExplain: "Your score drops when a video fails an integrity check or an auditor overturns a result from your visit. Film the whole fridge, in the shop, on the day.",
+    scoreGood: "Good standing", howToKeep: "How to keep it high", keep1: "Film every shelf, top to bottom", keep2: "Show the asset sticker on the door", keep3: "Never reuse an old video", keep4: "Hold the phone steady",
+    plan: "Plan", fridges: "Fridges", addCompany: "Add company", companyName: "Company name", brandsCsv: "Brands, comma separated", add: "Add",
+    companiesP: "ShelfSense works for any brand that places fridges in shops. Each company sees only its own shops and results.",
+    name: "Name", role: "Role", status: "Status", active: "Active", addUser: "Add user", usersP: "Merchandisers record visits, auditors decide, admins configure.",
+    ownerBrand: "Fridge brand", paidShelf: "Paid shelf", fee: "Monthly fee",
+    brandsP: "Cooler purity uses this table. A fridge fails if it holds a brand owned by a different company.", brand: "Brand", owner: "Owner",
+    threshold: "Review threshold", thresholdD: "Findings below this confidence go to the review queue instead of counting automatically. Higher means fewer false accusations and more manual work.",
+    blurMax: "Blur limit (Crete score)", blurMaxD: "Frames scoring above this are dropped. 0 is sharp, 1 is fully blurred.", fps: "Frame sampling", fpsD: "Frames taken per second of video before blur and duplicate filtering.",
+    showVerdict: "Show AI results to merchandisers", showVerdictD: "When off, merchandisers only see Accepted or Re-record.",
+    pipeline: "Pipeline status", activity: "Activity", stageWorks: "Working", stageTest: "Being tested", stageNext: "Not built yet",
+    pl1: "Frame extraction", pl1d: "4 fps, Crete blur filter, pHash duplicates. 115 supermarket videos: 4,491 frames kept, 169 blurry and 537 duplicates dropped.", pl2: "Product detection", pl2d: "YOLOv8n trained on SKU-110K: mAP50 0.913 on 500 validation images. Fine-tuning on our own frames is next.", pl3: "Brand reading", pl3d: "Qwen2-VL-2B on single-product crops: brand precision 0.94, recall 0.63 (whole frames: 1.00 / 0.30).", pl4: "Rule engine and report", pl4d: "Sprint 5",
+    logStart: "Demo session started", logConfirm: "{u} confirmed \"{f}\" at {s}", logOver: "{u} overturned \"{f}\" at {s}", logDecide: "{u} set {s} to {d}", logThr: "Review threshold changed to {v}", logVisit: "{u} submitted a visit to {s}", logCo: "Company added: {c}", logUser: "User added: {c}",
+    mo: "Oct", none: "None"
+  },
+  bn: {
+    demo: "ডেমো প্রোটোটাইপ · নমুনা ডেটা · AI ফলাফল সিমুলেটেড", view: "ভিউ", web: "ওয়েব", phone: "মোবাইল", switchRole: "ভূমিকা বদলান", theme: "থিম",
+    tagline: "ভিডিও প্রমাণসহ ফ্রিজ অডিট", heroP: "মার্চেন্ডাইজার ফ্রিজের ভিডিও করেন। ShelfSense ব্র্যান্ড, প্লেসমেন্ট ও স্টক যাচাই করে, আর অডিটর প্রতিটি ফলাফলের প্রমাণ দেখে তবেই দোকানকে পেমেন্ট বা জরিমানার সিদ্ধান্ত নেন।",
+    signInAs: "যে হিসেবে প্রবেশ করবেন", role_merch: "মার্চেন্ডাইজার", role_auditor: "অডিটর", role_admin: "অ্যাডমিন",
+    role_merch_d: "দোকানে যান, ফ্রিজের ভিডিও করুন, ফলাফল দেখুন", role_auditor_d: "ফলাফল যাচাই, প্রমাণ দেখা ও পেমেন্টের সিদ্ধান্ত", role_admin_d: "কোম্পানি, ইউজার, দোকান ও সেটিংস পরিচালনা",
+    enter: "প্রবেশ", company: "কোম্পানি", language: "ভাষা", logout: "লগ আউট",
+    today: "আজ", newVisit: "নতুন ভিজিট", myVisits: "আমার ভিজিট", profile: "আমার স্কোর",
+    overview: "সারসংক্ষেপ", review: "যাচাই তালিকা", shops: "দোকান", merchs: "মার্চেন্ডাইজার",
+    companies: "কোম্পানি", users: "ইউজার", contracts: "দোকান ও চুক্তি", brands: "ব্র্যান্ড মালিকানা", settings: "সেটিংস", system: "সিস্টেম",
+    purity: "কুলার বিশুদ্ধতা", purity_d: "শুধু আপনার ব্র্যান্ড আছে এমন ফ্রিজ", placement: "পেইড প্লেসমেন্ট", placement_d: "চুক্তির তাকে চুক্তির ব্র্যান্ড",
+    oos: "স্টক নেই", oos_d: "ভিডিও করা তাকে খালি জায়গা", sos: "শেলফ শেয়ার", sos_d: "মোট ফেসিংয়ে আপনার অংশ",
+    needsReview: "যাচাই বাকি", needsReview_d: "মানুষের যাচাইয়ের অপেক্ষায়", openQueue: "তালিকা খুলুন",
+    overviewP: "{co} · ২২–২৫ অক্টোবর ২০২৬-এর অডিট। সত্যতা যাচাইয়ে ব্যর্থ দোকান পুনরায় অডিট না হওয়া পর্যন্ত KPI-তে ধরা হয় না।",
+    savings: "এ মাসে এড়ানো পুনঃভিজিট", savingsD: "শুধু ভিডিও প্রমাণে নিষ্পত্তি হওয়া দোকান, দ্বিতীয় অডিটর পাঠাতে হয়নি (নমুনা হিসাব)।",
+    trend: "কুলার বিশুদ্ধতা, শেষ ৮ সপ্তাহ", sosByBrand: "ব্র্যান্ড অনুযায়ী ফেসিং", yours: "আপনার", rival: "প্রতিযোগী", week: "সপ্তাহ",
+    shop: "দোকান", area: "এলাকা", fridge: "ফ্রিজ", lastAudit: "শেষ অডিট", integrity: "সত্যতা", action: "সুপারিশ", rep: "মার্চেন্ডাইজার", purityCol: "বিশুদ্ধতা",
+    pay: "ইনসেনটিভ দিন", hold: "পেমেন্ট স্থগিত", reaudit: "পুনরায় অডিট", pending: "যাচাইয়ের অপেক্ষায়", ok: "ঠিক আছে",
+    visits: "ভিজিট", intFails: "সত্যতা ব্যর্থ", overturned: "বাতিল হয়েছে", trust: "আস্থা",
+    merchsP: "কোনো মার্চেন্ডাইজারের ভিডিও সত্যতা যাচাইয়ে ব্যর্থ হলে বা তাঁর ফলাফল বাতিল হলে আস্থা কমে। কম স্কোর মানে তাঁর দোকানগুলো আবার যাচাই করা দরকার।",
+    findings: "ফলাফল", conf: "নিশ্চয়তা", confirm: "নিশ্চিত করুন", overturn: "বাতিল করুন", undo: "ফিরিয়ে নিন",
+    f_competitor: "প্রতিযোগী ব্র্যান্ড: {b}", f_placement: "পেইড তাকে {b} নেই", f_oos: "{n}টি খালি জায়গা", f_price: "দামের ট্যাগ পাওয়া যায়নি", f_okPlacement: "পেইড তাকে {b} আছে", f_clean: "ফ্রিজে শুধু {co}-এর ব্র্যান্ড",
+    shelf: "তাক {n}", eye: "চোখের সমান",
+    st_auto: "স্বয়ংক্রিয় নিশ্চিত", st_review: "যাচাই বাকি", st_confirmed: "অডিটর নিশ্চিত করেছেন", st_overturned: "অডিটর বাতিল করেছেন", st_info: "তথ্যের জন্য",
+    i_hash: "SHA-256 সংরক্ষিত", i_new: "আগের কোনো অডিটে দেখা যায়নি", i_reused: "{d}-এর অডিটের একই ভিডিও", i_sticker: "অ্যাসেট স্টিকার: {id}", i_cov: "ভিডিও করা তাক: {b}টির মধ্যে {a}টি", i_date: "ফাইলের তারিখ ভিজিটের সাথে মিলেছে", i_gps: "GPS চেক-ইন (পরিকল্পিত)",
+    evidence: "প্রমাণ", frames: "কী-ফ্রেম", notFilmed: "ভিডিও হয়নি",
+    aiSuggests: "ShelfSense-এর সুপারিশ", decision: "আপনার সিদ্ধান্ত", exportJson: "JSON রিপোর্ট দেখুন", copy: "কপি", copied: "কপি হয়েছে", close: "বন্ধ", back: "সব দোকান",
+    reviewP: "AI একা কোনো দোকানকে দোষী করে না। {th}-এর কম নিশ্চয়তার ফলাফল এখানে অপেক্ষা করে, যতক্ষণ না কেউ প্রমাণ দেখে সিদ্ধান্ত নেন।",
+    reviewEmpty: "কিছু বাকি নেই। সব ফলাফল যাচাই হয়েছে।", reviewOpen: "প্রমাণ দেখুন",
+    integrityFail: "সত্যতা যাচাই ব্যর্থ", integrityFailD: "এই ভিডিওর ফলাফল ব্যবহার করা হবে না। অন্য মার্চেন্ডাইজার পাঠান।",
+    hello: "শুভ সকাল, {n}", route: "আজকের রুট", done: "সম্পন্ন", pendingV: "বাকি", startVisit: "ভিজিট শুরু", visitsDone: "{b}টির মধ্যে {a}টি দোকান সম্পন্ন",
+    selectShop: "দোকান", uploadVideo: "ফ্রিজের ভিডিও রেকর্ড বা আপলোড করুন", uploadHint: "দরজা খুলে উপর থেকে নিচ পর্যন্ত সব তাক ভিডিও করুন। ১৫–৩০ সেকেন্ড।", useSample: "নমুনা ক্লিপ ব্যবহার", chooseFile: "ভিডিও বাছুন",
+    checklist: "জমা দেওয়ার আগে", ck1: "ফ্রিজের দরজা খোলা", ck2: "সব তাক ভিডিওতে আছে", ck3: "অ্যাসেট স্টিকার দেখা যাচ্ছে",
+    submit: "অডিটের জন্য জমা দিন", p1: "ভিডিওর মান যাচাই", p2: "পরিষ্কার কী-ফ্রেম বাছাই", p3: "পণ্য ও খালি জায়গা খোঁজা", p4: "ব্র্যান্ড চেনা", p5: "সত্যতা যাচাই",
+    accepted: "গৃহীত", rerecord: "আবার ভিডিও করুন", acceptedNote: "ভিডিও ঠিক আছে। ফলাফল অডিটরের কাছে গেছে।", blurNote: "খুব ঝাপসা: {b}টির মধ্যে {a}টি ফ্রেম সীমার চেয়ে বেশি ঝাপসা। ফোন স্থির রেখে আবার ভিডিও করুন।",
+    whatAiSaw: "ShelfSense যা পেয়েছে", readOnly: "শুধু দেখার জন্য। ফলাফল শুধু অডিটর বদলাতে পারেন।", verdictHidden: "আপনার কোম্পানি ফলাফল শুধু অডিটরকে দেখায়।", another: "আরেকটি ভিজিট রেকর্ড",
+    tipBlur: "ডেমোর জন্য টিপ: ফাইলের নামে \"blur\" থাকলে আবার ভিডিও করার উদাহরণ দেখাবে।", justNow: "এইমাত্র", processed: "সম্পন্ন", underReview: "যাচাই চলছে", rerecorded: "আবার ভিডিও",
+    trustExplain: "ভিডিও সত্যতা যাচাইয়ে ব্যর্থ হলে বা অডিটর আপনার ভিজিটের ফলাফল বাতিল করলে স্কোর কমে। পুরো ফ্রিজ, দোকানেই, সেদিনই ভিডিও করুন।",
+    scoreGood: "ভালো অবস্থান", howToKeep: "স্কোর ভালো রাখতে", keep1: "উপর থেকে নিচ পর্যন্ত সব তাক ভিডিও করুন", keep2: "দরজার অ্যাসেট স্টিকার দেখান", keep3: "পুরোনো ভিডিও কখনো আবার দেবেন না", keep4: "ফোন স্থির রাখুন",
+    plan: "প্ল্যান", fridges: "ফ্রিজ", addCompany: "কোম্পানি যোগ", companyName: "কোম্পানির নাম", brandsCsv: "ব্র্যান্ড, কমা দিয়ে", add: "যোগ করুন",
+    companiesP: "দোকানে ফ্রিজ দেয় এমন যেকোনো ব্র্যান্ড ShelfSense ব্যবহার করতে পারে। প্রতিটি কোম্পানি শুধু নিজের দোকান ও ফলাফল দেখে।",
+    name: "নাম", role: "ভূমিকা", status: "অবস্থা", active: "সক্রিয়", addUser: "ইউজার যোগ", usersP: "মার্চেন্ডাইজার ভিজিট রেকর্ড করেন, অডিটর সিদ্ধান্ত নেন, অ্যাডমিন সেটআপ করেন।",
+    ownerBrand: "ফ্রিজের ব্র্যান্ড", paidShelf: "পেইড তাক", fee: "মাসিক ফি",
+    brandsP: "কুলার বিশুদ্ধতা এই তালিকা ব্যবহার করে। অন্য কোম্পানির ব্র্যান্ড থাকলে ফ্রিজ ব্যর্থ হয়।", brand: "ব্র্যান্ড", owner: "মালিক",
+    threshold: "যাচাই সীমা", thresholdD: "এর কম নিশ্চয়তার ফলাফল স্বয়ংক্রিয়ভাবে না ধরে যাচাই তালিকায় যায়। বেশি মানে ভুল অভিযোগ কম, হাতে কাজ বেশি।",
+    blurMax: "ঝাপসা সীমা (Crete স্কোর)", blurMaxD: "এর বেশি স্কোরের ফ্রেম বাদ যায়। ০ মানে পরিষ্কার, ১ মানে পুরো ঝাপসা।", fps: "ফ্রেম স্যাম্পলিং", fpsD: "ঝাপসা ও একই ফ্রেম বাদ দেওয়ার আগে প্রতি সেকেন্ডে কতটি ফ্রেম নেওয়া হয়।",
+    showVerdict: "মার্চেন্ডাইজারকে AI ফলাফল দেখান", showVerdictD: "বন্ধ থাকলে মার্চেন্ডাইজার শুধু গৃহীত বা আবার ভিডিও দেখবেন।",
+    pipeline: "পাইপলাইনের অবস্থা", activity: "কার্যক্রম", stageWorks: "চালু", stageTest: "পরীক্ষাধীন", stageNext: "এখনো তৈরি হয়নি",
+    pl1: "ফ্রেম বের করা", pl1d: "৪ fps, Crete ঝাপসা ফিল্টার, pHash ডুপ্লিকেট। ১১৫টি সুপারমার্কেট ভিডিও: ৪,৪৯১টি ফ্রেম রাখা হয়েছে, ১৬৯টি ঝাপসা ও ৫৩৭টি একই ফ্রেম বাদ।", pl2: "পণ্য শনাক্তকরণ", pl2d: "SKU-110K-এ প্রশিক্ষিত YOLOv8n: ৫০০টি যাচাই ছবিতে mAP50 0.913। এরপর নিজেদের ফ্রেমে ফাইন-টিউন।", pl3: "ব্র্যান্ড চেনা", pl3d: "একক পণ্যের ক্রপে Qwen2-VL-2B: ব্র্যান্ড প্রিসিশন 0.94, রিকল 0.63 (পুরো ফ্রেমে 1.00 / 0.30)।", pl4: "রুল ইঞ্জিন ও রিপোর্ট", pl4d: "স্প্রিন্ট ৫",
+    logStart: "ডেমো সেশন শুরু", logConfirm: "{u} নিশ্চিত করেছেন \"{f}\" ({s})", logOver: "{u} বাতিল করেছেন \"{f}\" ({s})", logDecide: "{u}: {s} → {d}", logThr: "যাচাই সীমা বদলে {v}", logVisit: "{u} ভিজিট জমা দিয়েছেন: {s}", logCo: "কোম্পানি যোগ হয়েছে: {c}", logUser: "ইউজার যোগ হয়েছে: {c}",
+    mo: "অক্টোবর", none: "নেই"
+  }
+};
+
+/* ---------- state ---------- */
+const S = {
+  role: null, lang: "en", co: "coke", view: "", device: "web",
+  shop: null, frame: 0, sel: null, threshold: 0.85, showVerdict: true, fps: 4,
+  decisions: {}, finals: {}, log: [], visit: null, myExtra: [],
+  companies: COMPANIES.slice(),
+  users: [
+    { name: "Rahim Uddin", role: "merch", co: "coke" }, { name: "Jamal Hossain", role: "merch", co: "coke" },
+    { name: "Tania Akter", role: "merch", co: "coke" }, { name: "Sumon Mia", role: "merch", co: "coke" },
+    { name: "Nadia Rahman", role: "auditor", co: "coke" }, { name: "Imran Kabir", role: "auditor", co: "transcom" },
+    { name: "Farzana Islam", role: "auditor", co: "akij" }, { name: "ShelfSense Admin", role: "admin", co: "—" }
+  ]
+};
+const store = {
+  get(k) { try { return localStorage.getItem("ss_" + k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem("ss_" + k, v); } catch (e) { /* storage blocked */ } }
+};
+if (store.get("lang") === "bn") S.lang = "bn";
+if (store.get("device") === "phone") S.device = "phone";
+
+const BN_DIGITS = "০১২৩৪৫৬৭৮৯";
+function d(x) { const s = String(x); return S.lang === "bn" ? s.replace(/[0-9]/g, c => BN_DIGITS[c]) : s; }
+function t(k, v) {
+  let s = (TX[S.lang][k] !== undefined ? TX[S.lang][k] : TX.en[k]) || k;
+  if (v) for (const key in v) s = s.split("{" + key + "}").join(v[key]);
+  return s;
+}
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c])); }
+function L(o, k) { return S.lang === "bn" ? (o[(k || "") + "bn"] || o[(k || "") + "en"]) : o[(k || "") + "en"]; }
+function pct(x) { return d(Math.round(x * 100)) + "%"; }
+function when(day, hm) { return S.lang === "bn" ? d(day) + " " + t("mo") + ", " + d(hm) : day + " Oct, " + hm; }
+function coName(c) { return c.name[S.lang] || c.name.en; }
+function curCo() { return S.companies.find(c => c.id === S.co) || S.companies[0]; }
+function rng(seed) { let x = seed >>> 0 || 1; return () => { x ^= x << 13; x ^= x >>> 17; x ^= x << 5; return ((x >>> 0) % 10000) / 10000; }; }
+function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function hex(r, n) { let s = ""; for (let i = 0; i < n; i++) s += "0123456789abcdef"[Math.floor(r() * 16)]; return s; }
+
+/* ---------- demo data per company ---------- */
+const CACHE = {};
+function data(co) {
+  if (CACHE[co.id]) return CACHE[co.id];
+  const r = rng(hashStr(co.id));
+  const own = co.brands;
+  const shops = SHOPS.map((s, i) => {
+    const rival = co.rivals[i % co.rivals.length];
+    const slots = [];
+    for (let sh = 0; sh < 4; sh++) {
+      const row = [];
+      for (let k = 0; k < 6; k++) row.push(sh === 0 ? own[0] : own[(sh + k) % own.length]);
+      slots.push(row);
+    }
+    const f = [];
+    const integ = { reused: null, coverage: 4, sticker: true };
+    if (s.sc === "competitor_review") { slots[1][4] = rival; f.push({ id: "f1", type: "competitor", brand: rival, shelf: 1, slot: [4], conf: 0.71 }); }
+    if (s.sc === "competitor_confirmed") { slots[2][1] = rival; slots[2][2] = rival; f.push({ id: "f1", type: "competitor", brand: rival, shelf: 2, slot: [1, 2], conf: 0.94 }); }
+    if (s.sc === "placement") {
+      slots[0] = [own[1], own[2], own[1], own[0], own[2], own[1]];
+      f.push({ id: "f1", type: "placement", brand: own[0], shelf: 0, slot: [0, 1, 2, 4, 5], conf: 0.88 });
+    }
+    if (s.sc === "oos") { slots[3][3] = slots[3][4] = slots[3][5] = null; f.push({ id: "f1", type: "oos", n: 3, shelf: 3, slot: [3, 4, 5], conf: 0.91 }); }
+    if (s.sc === "reused") integ.reused = 12;
+    if (s.sc === "coverage") { integ.coverage = 3; slots[3] = [null, null, null, null, null, null]; }
+    if (i % 3 === 1) f.push({ id: "f9", type: "price", shelf: null, slot: [], conf: 0.62 });
+    const fridge = co.prefix + "-" + String(100 + Math.floor(r() * 900)).padStart(4, "0");
+    return {
+      id: co.id + "-" + i, i, en: s.en, bn: s.bn, aen: s.aen, abn: s.abn, rep: s.rep, day: s.day, hm: s.hm,
+      fridge, slots, f, integ, sha: hex(r, 64), fee: co.fee + Math.round(r() * 6) * 100,
+      prevPurity: 0.7 + r() * 0.3
+    };
+  });
+  const trendBase = [];
+  for (let w = 0; w < 7; w++) trendBase.push(0.68 + r() * 0.2);
+  CACHE[co.id] = { shops, trendBase, avoided: 9 + Math.floor(r() * 10) };
+  return CACHE[co.id];
+}
+
+function fStatus(shop, f) {
+  if (f.type === "price") { const dd = S.decisions[shop.id + ":" + f.id]; return dd || (f.conf >= S.threshold ? "auto" : "review"); }
+  const dd = S.decisions[shop.id + ":" + f.id];
+  if (dd) return dd;
+  return f.conf >= S.threshold ? "auto" : "review";
+}
+function counts(st) { return st === "auto" || st === "confirmed"; }
+function integrityFail(shop) { return shop.integ.reused !== null || shop.integ.coverage < 4 || !shop.integ.sticker; }
+function hasViolation(shop, type) { return shop.f.some(f => f.type === type && counts(fStatus(shop, f))); }
+function suggest(shop) {
+  if (integrityFail(shop)) return "reaudit";
+  if (shop.f.some(f => (f.type === "competitor" || f.type === "placement") && fStatus(shop, f) === "review")) return "pending";
+  if (hasViolation(shop, "competitor") || hasViolation(shop, "placement")) return "hold";
+  return "pay";
+}
+function finalRec(shop) { return S.finals[shop.id] || suggest(shop); }
+function ownerOf(b) { return BRAND[b] ? BRAND[b].owner : null; }
+function purityOf(shop) {
+  const co = curCo(); let own = 0, all = 0;
+  shop.slots.forEach(row => row.forEach(b => { if (b) { all++; if (ownerOf(b) === co.id) own++; } }));
+  if (shop.f.some(f => f.type === "competitor" && fStatus(shop, f) === "overturned")) return 1;
+  return all ? own / all : 1;
+}
+function kpis() {
+  const co = curCo(); const D = data(co);
+  const valid = D.shops.filter(s => !integrityFail(s));
+  const pure = valid.filter(s => !hasViolation(s, "competitor")).length;
+  const placed = valid.filter(s => !hasViolation(s, "placement")).length;
+  let gaps = 0, slots = 0, ownF = 0, allF = 0; const byBrand = {};
+  valid.forEach(s => s.slots.forEach(row => row.forEach(b => {
+    slots++; if (!b) { gaps++; return; }
+    allF++; byBrand[b] = (byBrand[b] || 0) + 1; if (ownerOf(b) === co.id) ownF++;
+  })));
+  const review = D.shops.reduce((n, s) => n + s.f.filter(f => fStatus(s, f) === "review").length, 0);
+  return { purity: pure / valid.length, placement: placed / valid.length, oos: gaps / slots, sos: ownF / allF, review, byBrand, allF, valid: valid.length };
+}
+function repStats(i) {
+  const D = data(curCo()); const base = REPS[i];
+  let fails = base.fails, over = base.over;
+  D.shops.forEach(s => {
+    if (s.rep !== i) return;
+    if (integrityFail(s)) fails++;
+    s.f.forEach(f => { if (S.decisions[s.id + ":" + f.id] === "overturned") over++; });
+  });
+  const trust = Math.max(0, Math.min(100, 100 - fails * 6 - over * 4));
+  return { visits: base.visits, fails, over, trust };
+}
+function logIt(k, v) { S.log.unshift({ at: new Date(), k, v }); }
+logIt("logStart");
+
+/* ---------- icons ---------- */
+const IC = {
+  home: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>',
+  cam: '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/>',
+  list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+  star: '<path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/>',
+  grid: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+  flag: '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
+  shop: '<path d="M4 9h16l-1-5H5zM5 9v11h14V9M10 20v-6h4v6"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c1.8.7 3 2.6 3.5 5.2"/>',
+  building: '<path d="M4 21V5l8-2v18M12 8l8 2v11M8 9h.01M8 13h.01M8 17h.01M16 13h.01M16 17h.01M2 21h20"/>',
+  tag: '<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.3"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+  pulse: '<path d="M3 12h4l3-7 4 14 3-7h4"/>',
+  fridge: '<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M5 9h14M8 5v2M8 12v3"/>',
+  shield: '<path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>'
+};
+function icon(n) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + IC[n] + "</svg>"; }
+const LOGO = '<svg viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="2" width="24" height="28" rx="4" fill="var(--accent)"/><rect x="8" y="7" width="16" height="2.5" rx="1" fill="var(--on-accent)"/><rect x="8" y="13" width="16" height="2.5" rx="1" fill="var(--on-accent)" opacity=".75"/><rect x="8" y="19" width="10" height="2.5" rx="1" fill="var(--on-accent)" opacity=".5"/><circle cx="22" cy="22" r="4.5" fill="none" stroke="var(--on-accent)" stroke-width="2"/></svg>';
+
+const NAV = {
+  merch: [["today", "home"], ["newVisit", "cam"], ["myVisits", "list"], ["profile", "star"]],
+  auditor: [["overview", "grid"], ["review", "flag"], ["shops", "shop"], ["merchs", "users"]],
+  admin: [["companies", "building"], ["users", "users"], ["contracts", "fridge"], ["brands", "tag"], ["settings", "gear"], ["system", "pulse"]]
+};
+const ME = { merch: 0, auditor: "Nadia Rahman", admin: "ShelfSense Admin" };
+
+/* ---------- small renderers ---------- */
+function recChip(r) {
+  const cls = { pay: "ok", hold: "bad", reaudit: "warn", pending: "plain" }[r];
+  return '<span class="chip ' + cls + '">' + t(r) + "</span>";
+}
+function stChip(st, type) {
+  if (type === "price" && st !== "review") return '<span class="chip plain">' + t("st_info") + "</span>";
+  const cls = { auto: "bad", review: "warn", confirmed: "bad", overturned: "plain" }[st];
+  return '<span class="chip ' + cls + '">' + t("st_" + st) + "</span>";
+}
+function fTitle(f) {
+  const co = curCo();
+  if (f.type === "competitor") return t("f_competitor", { b: f.brand });
+  if (f.type === "placement") return t("f_placement", { b: f.brand });
+  if (f.type === "oos") return t("f_oos", { n: d(f.n) });
+  if (f.type === "price") return t("f_price");
+  return "";
+}
+function shelfLabel(sh) { return t("shelf", { n: d(sh + 1) }) + (sh === 0 ? " · " + t("eye") : ""); }
+function integChip(s) {
+  if (s.integ.reused !== null) return '<span class="chip bad">' + (S.lang === "bn" ? "পুরোনো ভিডিও" : "Reused video") + "</span>";
+  if (s.integ.coverage < 4) return '<span class="chip warn">' + d(s.integ.coverage) + "/" + d(4) + (S.lang === "bn" ? " তাক" : " shelves") + "</span>";
+  return '<span class="chip ok">' + t("ok") + "</span>";
+}
+function fTime(f) { const fr = FRAMES.find(x => x.shelf === f.shelf); return fr ? fr.t : "—"; }
+
+function fridgeSVG(shop, opt) {
+  const co = curCo(); const main = co.brands[0]; const mc = (BRAND[main] || { c: "#666" }).c;
+  const frames = FRAMES.slice(0, shop.integ.coverage);
+  const curShelf = opt.frame != null && frames[opt.frame] ? frames[opt.frame].shelf : null;
+  let s = '<svg class="fridge" viewBox="0 0 300 460" role="img" aria-label="' + esc(L(shop) + " · " + shop.fridge) + '">';
+  s += '<defs><pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" class="fr-hatch"/><line x1="0" y1="0" x2="0" y2="8" stroke="var(--line)" stroke-width="3"/></pattern></defs>';
+  s += '<rect x="6" y="6" width="288" height="448" rx="14" class="fr-body"/>';
+  s += '<path d="M20 6h260a14 14 0 0 1 14 14v30H6V20A14 14 0 0 1 20 6z" fill="' + mc + '"/>';
+  s += '<text x="150" y="35" text-anchor="middle" fill="#fff" font-family="Archivo, sans-serif" font-weight="800" font-size="17" letter-spacing="2">' + esc(main.toUpperCase()) + "</text>";
+  s += '<rect x="26" y="58" width="256" height="360" rx="6" class="fr-in"/>';
+  for (let sh = 0; sh < 4; sh++) {
+    const y0 = 62 + sh * 89;
+    s += '<text x="16" y="' + (y0 + 48) + '" text-anchor="middle" class="fr-num">' + d(sh + 1) + "</text>";
+    const filmed = sh < shop.integ.coverage;
+    if (!filmed) {
+      s += '<rect x="30" y="' + (y0 + 2) + '" width="248" height="80" rx="4" fill="url(#hatch)"/>';
+      s += '<text x="154" y="' + (y0 + 47) + '" text-anchor="middle" class="fr-nf">' + esc(t("notFilmed")) + "</text>";
+    } else {
+      for (let k = 0; k < 6; k++) {
+        const x = 36 + k * 41, b = shop.slots[sh][k];
+        if (!b) { s += '<rect x="' + x + '" y="' + (y0 + 14) + '" width="30" height="66" rx="5" class="fr-gap"/>'; continue; }
+        const c = (BRAND[b] || { c: "#888" }).c;
+        s += '<rect x="' + (x + 11) + '" y="' + (y0 + 6) + '" width="8" height="5" rx="1" fill="#2a2a2a"/>';
+        s += '<path d="M' + (x + 11) + " " + (y0 + 11) + "h8l4 9v0H" + (x + 7) + 'z" fill="' + c + '"/>';
+        s += '<rect x="' + x + '" y="' + (y0 + 19) + '" width="30" height="61" rx="6" fill="' + c + '"/>';
+        s += '<rect x="' + x + '" y="' + (y0 + 40) + '" width="30" height="13" fill="#fff" opacity=".82"/>';
+        s += '<text x="' + (x + 15) + '" y="' + (y0 + 50) + '" text-anchor="middle" font-size="7" font-family="Archivo, sans-serif" font-weight="700" fill="' + c + '">' + esc(b.split(" ")[0].slice(0, 6).toUpperCase()) + "</text>";
+      }
+    }
+    s += '<line x1="26" x2="282" y1="' + (y0 + 84) + '" y2="' + (y0 + 84) + '" class="fr-shelf"/>';
+    if (curShelf !== null && curShelf !== sh) s += '<rect x="26" y="' + y0 + '" width="256" height="86" class="fr-dim"/>';
+  }
+  shop.f.forEach(f => {
+    if (f.shelf === null || !f.slot.length) return;
+    const st = fStatus(shop, f);
+    const cls = st === "overturned" ? "off" : st === "review" ? "warn" : "bad";
+    const y0 = 62 + f.shelf * 89;
+    const x = 36 + Math.min.apply(null, f.slot) * 41 - 4, x2 = 36 + Math.max.apply(null, f.slot) * 41 + 34;
+    s += '<rect x="' + x + '" y="' + (y0 + 3) + '" width="' + (x2 - x) + '" height="80" rx="4" class="box ' + cls + (opt.sel === f.id ? " sel" : "") + '"/>';
+    const lx = Math.min(x + 3, 230);
+    s += '<rect x="' + (lx - 2) + '" y="' + (y0 - 8) + '" width="54" height="15" rx="3" fill="var(--surface)"/>';
+    s += '<text x="' + (lx + 2) + '" y="' + (y0 + 3) + '" class="boxlbl ' + cls + '">' + d(f.conf.toFixed(2)) + "</text>";
+  });
+  s += '<rect x="200" y="426" width="80" height="20" rx="3" fill="#fff" stroke="#999"/>';
+  s += '<text x="240" y="440" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#111">' + esc(shop.fridge) + "</text>";
+  s += '<rect x="20" y="430" width="40" height="12" rx="6" fill="var(--line)"/>';
+  return s + "</svg>";
+}
+
+function lineChart(vals) {
+  const W = 600, H = 210, pl = 44, pr = 56, pt = 18, pb = 30, lo = 0.5, hi = 1;
+  const X = i => pl + i * (W - pl - pr) / (vals.length - 1);
+  const Y = v => pt + (1 - (v - lo) / (hi - lo)) * (H - pt - pb);
+  let s = '<svg class="chart" viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="' + esc(t("trend")) + '">';
+  [0.5, 0.6, 0.7, 0.8, 0.9, 1].forEach(g => {
+    s += '<line class="grid" x1="' + pl + '" x2="' + (W - pr) + '" y1="' + Y(g) + '" y2="' + Y(g) + '"/>';
+    s += '<text class="lbl" x="' + (pl - 8) + '" y="' + (Y(g) + 4) + '" text-anchor="end">' + d(Math.round(g * 100)) + "%</text>";
+  });
+  vals.forEach((v, i) => { s += '<text class="lbl" x="' + X(i) + '" y="' + (H - 8) + '" text-anchor="middle">' + esc(t("week")) + " " + d(36 + i) + "</text>"; });
+  const pts = vals.map((v, i) => X(i) + "," + Y(v)).join(" ");
+  s += '<polygon class="area" points="' + X(0) + "," + Y(lo) + " " + pts + " " + X(vals.length - 1) + "," + Y(lo) + '"/>';
+  s += '<polyline class="line" points="' + pts + '"/>';
+  const li = vals.length - 1;
+  s += '<circle class="dot" cx="' + X(li) + '" cy="' + Y(vals[li]) + '" r="5"/>';
+  s += '<text class="val" x="' + (X(li) + 10) + '" y="' + (Y(vals[li]) + 4) + '">' + pct(vals[li]) + "</text>";
+  return s + "</svg>";
+}
+
+/* ---------- shell ---------- */
+function renderDemo() {
+  const th = document.documentElement.getAttribute("data-theme") || "system";
+  document.getElementById("demo").innerHTML =
+    '<span class="tag">' + esc(t("demo")) + '</span><span class="spacer"></span>' +
+    '<span>' + t("view") + '</span><span class="seg" role="group"><button data-act="device" data-v="web" aria-pressed="' + (S.device === "web") + '">' + t("web") + '</button><button data-act="device" data-v="phone" aria-pressed="' + (S.device === "phone") + '">' + t("phone") + "</button></span>" +
+    '<span class="seg" role="group" aria-label="' + t("language") + '"><button data-act="lang" data-v="en" aria-pressed="' + (S.lang === "en") + '">EN</button><button data-act="lang" data-v="bn" aria-pressed="' + (S.lang === "bn") + '">বাংলা</button></span>' +
+    '<span class="seg" role="group" aria-label="' + t("theme") + '"><button data-act="theme" data-v="light" aria-pressed="' + (th === "light") + '">☀</button><button data-act="theme" data-v="system" aria-pressed="' + (th === "system") + '">A</button><button data-act="theme" data-v="dark" aria-pressed="' + (th === "dark") + '">☾</button></span>' +
+    (S.role ? '<button class="btn ghost" data-act="logout">' + t("switchRole") + "</button>" : "");
+  document.getElementById("stage").className = "stage" + (S.device === "phone" ? " phone" : "");
+}
+
+function render() {
+  document.documentElement.lang = S.lang;
+  renderDemo();
+  const app = document.getElementById("app");
+  if (!S.role) { app.innerHTML = renderLogin(); return; }
+  const co = curCo();
+  const nav = NAV[S.role];
+  const who = S.role === "merch" ? L(REPS[ME.merch]) : ME[S.role];
+  let head = '<div class="apphead"><span class="logo">' + LOGO + "ShelfSense</span>" +
+    '<span class="chip acc">' + t("role_" + S.role) + "</span><span class=\"grow\"></span>";
+  if (S.role === "merch") head += '<span class="chip plain hide-narrow">' + esc(coName(co)) + "</span>";
+  else head += '<label class="sr" for="coSel" hidden>' + t("company") + '</label><select id="coSel" class="inp" data-act="co" aria-label="' + t("company") + '">' +
+    S.companies.map(c => '<option value="' + c.id + '"' + (c.id === S.co ? " selected" : "") + ">" + esc(coName(c)) + "</option>").join("") + "</select>";
+  head += '<span class="who-name small muted">' + esc(who) + '</span><button class="btn ghost" data-act="logout">' + t("logout") + "</button></div>";
+  const side = '<nav class="side" aria-label="Main">' + nav.map(([k, ic]) => '<button data-act="nav" data-v="' + k + '"' + (S.view === k ? ' aria-current="page"' : "") + ">" + icon(ic) + "<span>" + t(k) + (k === "review" && kpis().review ? ' <span class="chip warn">' + d(kpis().review) + "</span>" : "") + "</span></button>").join("") + "</nav>";
+  const tab = '<nav class="tabbar" aria-label="Main">' + nav.slice(0, 5).map(([k, ic]) => '<button data-act="nav" data-v="' + k + '"' + (S.view === k ? ' aria-current="page"' : "") + ">" + icon(ic) + "<span>" + t(k) + "</span></button>").join("") + "</nav>";
+  app.innerHTML = head + '<div class="body">' + side + "<main>" + renderView() + "</main></div>" + tab;
+}
+
+function renderLogin() {
+  const card = (r, ic, who) => '<button class="rolecard" data-act="login" data-v="' + r + '">' + icon(ic) + "<h2>" + t("role_" + r) + '</h2><span>' + t("role_" + r + "_d") + '</span><span class="who">' + esc(who) + '</span><span class="go">' + t("enter") + " →</span></button>";
+  return '<div class="login"><div class="hero"><span class="logo">' + LOGO + 'ShelfSense</span><h1>' + t("tagline") + "</h1><p>" + t("heroP") + "</p></div>" +
+    '<div class="opts"><div class="field"><label for="loginCo">' + t("company") + '</label><select id="loginCo" class="inp" data-act="co">' +
+    S.companies.map(c => '<option value="' + c.id + '"' + (c.id === S.co ? " selected" : "") + ">" + esc(coName(c)) + "</option>").join("") + "</select></div></div>" +
+    '<div><div class="eyebrow" style="margin-bottom:8px">' + t("signInAs") + '</div><div class="roles">' +
+    card("merch", "cam", L(REPS[0])) + card("auditor", "shield", "Nadia Rahman") + card("admin", "gear", "ShelfSense Admin") + "</div></div></div>";
+}
+
+function renderView() {
+  const fn = VIEWS[S.view];
+  return fn ? fn() : "";
+}
+
+/* ---------- auditor ---------- */
+const VIEWS = {};
+VIEWS.overview = function () {
+  const co = curCo(); const D = data(co); const K = kpis();
+  const trend = D.trendBase.concat([K.purity]);
+  const kpi = (lab, v, desc, extra, cls) => '<div class="kpi ' + (cls || "") + '"><span class="eyebrow">' + lab + '</span><span class="v">' + v + '</span><span class="d">' + desc + "</span>" + (extra || "") + "</div>";
+  const brands = Object.keys(K.byBrand).sort((a, b) => K.byBrand[b] - K.byBrand[a]);
+  const bars = brands.map(b => { const own = ownerOf(b) === co.id; const p = K.byBrand[b] / K.allF; return '<div class="row"><span>' + esc(b) + ' <span class="muted small">' + (own ? "" : "· " + t("rival")) + '</span></span><div class="bar' + (own ? "" : " rival") + '"><i style="width:' + (p * 100).toFixed(1) + '%"></i></div><span class="num r">' + pct(p) + "</span></div>"; }).join("");
+  return '<div class="pagehead"><div><h1>' + t("overview") + "</h1><p>" + t("overviewP", { co: esc(coName(co)) }) + "</p></div></div>" +
+    '<div class="kpis">' +
+    kpi(t("purity"), pct(K.purity), t("purity_d")) + kpi(t("placement"), pct(K.placement), t("placement_d")) +
+    kpi(t("oos"), pct(K.oos), t("oos_d")) + kpi(t("sos"), pct(K.sos), t("sos_d")) +
+    kpi(t("needsReview"), d(K.review), t("needsReview_d"), '<button data-act="nav" data-v="review">' + t("openQueue") + " →</button>", K.review ? "alert" : "") +
+    "</div>" +
+    '<div class="grid2"><section class="panel"><header><h2>' + t("trend") + '</h2></header>' + lineChart(trend) + "</section>" +
+    '<section class="panel"><header><h2>' + t("sosByBrand") + '</h2><span class="small muted"><span class="chip acc">' + t("yours") + '</span> <span class="chip">' + t("rival") + "</span></span></header><div class=\"bars\">" + bars + "</div></section></div>" +
+    shopTable(D.shops.slice(0, 8)) +
+    '<section class="panel"><header><h2>' + t("savings") + '</h2><span class="kpi-inline num" style="font-family:var(--font-display);font-size:1.6rem;font-weight:800">' + d(D.avoided) + '</span></header><p class="muted small" style="margin:0">' + t("savingsD") + "</p></section>";
+};
+function shopTable(shops, title) {
+  const rows = shops.map(s => {
+    const r = finalRec(s); const fail = integrityFail(s);
+    return '<tr class="click" data-act="shop" data-v="' + s.id + '"><td><strong>' + esc(L(s)) + '</strong><div class="small muted">' + esc(L(s, "a")) + '</div></td><td class="mono small">' + s.fridge + '</td><td class="small">' + esc(L(REPS[s.rep])) + '</td><td class="small num">' + when(s.day, s.hm) + '</td><td class="r num">' + (fail ? "—" : pct(purityOf(s))) + "</td><td>" + integChip(s) + "</td><td>" + recChip(r) + "</td></tr>";
+  }).join("");
+  return '<section class="panel"><header><h2>' + (title || t("shops")) + '</h2></header><div class="tablewrap"><table><thead><tr><th>' + t("shop") + "</th><th>" + t("fridge") + "</th><th>" + t("rep") + "</th><th>" + t("lastAudit") + '</th><th class="r">' + t("purityCol") + "</th><th>" + t("integrity") + "</th><th>" + t("action") + "</th></tr></thead><tbody>" + rows + "</tbody></table></div></section>";
+}
+VIEWS.shops = function () {
+  if (S.shop) return auditView();
+  return '<div class="pagehead"><div><h1>' + t("shops") + "</h1><p>" + esc(coName(curCo())) + "</p></div></div>" + shopTable(data(curCo()).shops);
+};
+VIEWS.review = function () {
+  const D = data(curCo()); const items = [];
+  D.shops.forEach(s => s.f.forEach(f => { if (fStatus(s, f) === "review") items.push([s, f]); }));
+  const list = items.length ? items.map(([s, f]) =>
+    '<div class="finding warn"><div class="stripe"></div><div><div class="t" data-act="openf" data-v="' + s.id + '" data-f="' + f.id + '">' + esc(fTitle(f)) + "</div>" +
+    '<div class="meta"><span>' + esc(L(s)) + " · " + esc(L(s, "a")) + '</span><span class="mono">' + s.fridge + "</span>" + (f.shelf !== null ? "<span>" + shelfLabel(f.shelf) + '</span><span class="mono">' + fTime(f) + "</span>" : "") + '<span class="mono">' + t("conf") + " " + d(f.conf.toFixed(2)) + "</span><span>" + esc(L(REPS[s.rep])) + "</span></div>" +
+    '<div class="acts"><button class="btn primary" data-act="openf" data-v="' + s.id + '" data-f="' + f.id + '">' + t("reviewOpen") + '</button><button class="btn danger" data-act="dec" data-v="' + s.id + '" data-f="' + f.id + '" data-d="confirmed">' + t("confirm") + '</button><button class="btn" data-act="dec" data-v="' + s.id + '" data-f="' + f.id + '" data-d="overturned">' + t("overturn") + "</button></div></div></div>"
+  ).join("") : '<div class="empty">' + t("reviewEmpty") + "</div>";
+  return '<div class="pagehead"><div><h1>' + t("review") + "</h1><p>" + t("reviewP", { th: d(S.threshold.toFixed(2)) }) + '</p></div></div><section class="panel">' + list + "</section>";
+};
+VIEWS.merchs = function () {
+  const rows = REPS.map((r, i) => {
+    const st = repStats(i); const cls = st.trust >= 85 ? "ok" : st.trust >= 70 ? "warn" : "bad";
+    return "<tr><td><strong>" + esc(L(r)) + '</strong></td><td class="r num">' + d(st.visits) + '</td><td class="r num">' + d(st.fails) + '</td><td class="r num">' + d(st.over) + '</td><td style="min-width:140px"><div style="display:flex;gap:8px;align-items:center"><div class="bar" style="flex:1"><i style="width:' + st.trust + '%;background:var(--' + cls + ')"></i></div><span class="chip ' + cls + ' num">' + d(st.trust) + "%</span></div></td></tr>";
+  }).join("");
+  return '<div class="pagehead"><div><h1>' + t("merchs") + "</h1><p>" + t("merchsP") + '</p></div></div><section class="panel"><div class="tablewrap"><table><thead><tr><th>' + t("name") + '</th><th class="r">' + t("visits") + '</th><th class="r">' + t("intFails") + '</th><th class="r">' + t("overturned") + "</th><th>" + t("trust") + "</th></tr></thead><tbody>" + rows + "</tbody></table></div></section>";
+};
+
+function auditView() {
+  const co = curCo(); const s = data(co).shops.find(x => x.id === S.shop);
+  if (!s) { S.shop = null; return VIEWS.shops(); }
+  const frames = FRAMES.slice(0, s.integ.coverage);
+  const fail = integrityFail(s);
+  const strip = '<div class="framestrip" role="group" aria-label="' + t("frames") + '">' + frames.map((fr, i) => '<button data-act="frame" data-v="' + i + '" aria-pressed="' + (S.frame === i) + '">' + d(fr.t) + "</button>").join("") + "</div>";
+  const placementOk = !s.f.some(f => f.type === "placement");
+  const compOk = !s.f.some(f => f.type === "competitor");
+  let fl = "";
+  s.f.forEach(f => {
+    const st = fStatus(s, f);
+    const cls = f.type === "price" ? (st === "review" ? "warn" : "") : st === "overturned" ? "" : st === "review" ? "warn" : "bad";
+    const decided = S.decisions[s.id + ":" + f.id];
+    fl += '<div class="finding ' + cls + (S.sel === f.id ? " selected" : "") + '"><div class="stripe"></div><div><div class="t" data-act="self" data-f="' + f.id + '">' + esc(fTitle(f)) + "</div>" +
+      '<div class="meta">' + (f.shelf !== null ? "<span>" + shelfLabel(f.shelf) + '</span><span class="mono">' + d(fTime(f)) + "</span>" : "") + '<span class="mono">' + t("conf") + " " + d(f.conf.toFixed(2)) + "</span>" + stChip(st, f.type) + "</div>" +
+      (fail ? "" : '<div class="acts">' + (decided ? '<button class="btn" data-act="dec" data-v="' + s.id + '" data-f="' + f.id + '" data-d="">' + t("undo") + "</button>" :
+        '<button class="btn danger" data-act="dec" data-v="' + s.id + '" data-f="' + f.id + '" data-d="confirmed">' + t("confirm") + '</button><button class="btn" data-act="dec" data-v="' + s.id + '" data-f="' + f.id + '" data-d="overturned">' + t("overturn") + "</button>") + "</div>") +
+      "</div></div>";
+  });
+  if (compOk) fl += '<div class="finding ok"><div class="stripe"></div><div><div class="t">' + t("f_clean", { co: esc(coName(co)) }) + "</div></div></div>";
+  if (placementOk) fl += '<div class="finding ok"><div class="stripe"></div><div><div class="t">' + t("f_okPlacement", { b: esc(co.brands[0]) }) + '</div><div class="meta"><span>' + shelfLabel(0) + "</span></div></div></div>";
+  const ck = (ok, txt, sub, plan) => '<div class="check ' + (plan ? "plan" : ok ? "ok" : "bad") + '"><span class="ic">' + (plan ? "○" : ok ? "✓" : "✕") + "</span><span>" + txt + (sub ? '<span class="mono">' + sub + "</span>" : "") + "</span></div>";
+  const checks = ck(true, t("i_hash"), s.sha) +
+    ck(s.integ.reused === null, s.integ.reused === null ? t("i_new") : t("i_reused", { d: when(s.integ.reused, "").replace(/, $/, "") })) +
+    ck(s.integ.sticker, t("i_sticker", { id: s.fridge })) +
+    ck(s.integ.coverage === 4, t("i_cov", { a: d(s.integ.coverage), b: d(4) })) +
+    ck(true, t("i_date")) + ck(false, t("i_gps"), "", true);
+  const sug = suggest(s); const fin = finalRec(s);
+  const decide = ["pay", "hold", "reaudit"].map(r => '<button class="btn" data-act="final" data-v="' + s.id + '" data-d="' + r + '" aria-pressed="' + (S.finals[s.id] === r) + '">' + t(r) + "</button>").join("");
+  return '<div><button class="btn ghost" data-act="backshop">← ' + t("back") + '</button></div>' +
+    '<div class="pagehead"><div><h1>' + esc(L(s)) + '</h1><p>' + esc(L(s, "a")) + ' · <span class="mono">' + s.fridge + "</span> · " + when(s.day, s.hm) + " · " + esc(L(REPS[s.rep])) + '</p></div><button class="btn" data-act="json" data-v="' + s.id + '">' + t("exportJson") + "</button></div>" +
+    (fail ? '<div class="result bad"><span class="big">' + t("integrityFail") + "</span><span>" + t("integrityFailD") + "</span></div>" : "") +
+    '<div class="grid-ev"><section class="panel"><header><h2>' + t("evidence") + '</h2><span class="small muted mono">' + d(frames.length) + " " + t("frames") + "</span></header>" + fridgeSVG(s, { frame: S.frame, sel: S.sel }) + strip + "</section>" +
+    '<section class="panel"><header><h2>' + t("findings") + "</h2></header>" + fl + "</section></div>" +
+    '<section class="panel"><header><h2>' + t("integrity") + "</h2></header><div class=\"checks\">" + checks + "</div></section>" +
+    '<section class="panel stampwrap"><div><div class="eyebrow">' + t("aiSuggests") + '</div><div style="margin-top:10px"><span class="stamp ' + sug + '">' + t(sug) + '</span></div></div><div><div class="eyebrow" style="margin-bottom:8px">' + t("decision") + '</div><div class="decide">' + decide + "</div></div></section>";
+}
+
+/* ---------- merchandiser ---------- */
+function myShops() { const D = data(curCo()); return D.shops.filter(s => s.rep === ME.merch).concat(D.shops.filter(s => s.rep !== ME.merch).slice(0, 4)); }
+VIEWS.today = function () {
+  const route = myShops().slice(0, 6);
+  const doneIds = route.filter(s => s.rep === ME.merch).map(s => s.id).concat(S.myExtra.map(v => v.shop));
+  const done = route.filter(s => doneIds.includes(s.id)).length;
+  const st = repStats(ME.merch);
+  const stops = route.map((s, i) => {
+    const isDone = doneIds.includes(s.id);
+    return '<div class="stop' + (isDone ? " done" : "") + '"><span class="n">' + (isDone ? "✓" : d(i + 1)) + '</span><div style="min-width:0"><strong>' + esc(L(s)) + '</strong><div class="small muted">' + esc(L(s, "a")) + ' · <span class="mono">' + s.fridge + "</span></div></div>" +
+      (isDone ? '<span class="chip ok">' + t("done") + "</span>" : '<button class="btn primary" data-act="startv" data-v="' + s.id + '">' + t("startVisit") + "</button>") + "</div>";
+  }).join("");
+  return '<div class="pagehead"><div><h1>' + t("hello", { n: esc(L(REPS[ME.merch]).split(" ")[0]) }) + "</h1><p>" + t("visitsDone", { a: d(done), b: d(route.length) }) + "</p></div></div>" +
+    '<div class="kpis" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div class="kpi"><span class="eyebrow">' + t("done") + '</span><span class="v">' + d(done) + '</span></div><div class="kpi"><span class="eyebrow">' + t("pendingV") + '</span><span class="v">' + d(route.length - done) + '</span></div><div class="kpi"><span class="eyebrow">' + t("trust") + '</span><span class="v">' + d(st.trust) + "%</span></div></div>" +
+    '<section class="panel"><header><h2>' + t("route") + '</h2></header><div class="route">' + stops + "</div></section>";
+};
+VIEWS.newVisit = function () {
+  const v = S.visit || (S.visit = { shop: myShops()[0].id, file: null, ck: [false, false, false], stage: -1 });
+  const shops = myShops();
+  const sh = shops.find(s => s.id === v.shop) || shops[0];
+  if (v.stage >= 0) {
+    const steps = ["p1", "p2", "p3", "p4", "p5"];
+    let body = '<div class="steps">' + steps.map((k, i) => '<div class="s ' + (i < v.stage ? "done" : i === v.stage ? "now" : "") + '"><span class="ic">' + (i < v.stage ? "✓" : i === v.stage ? "…" : "·") + "</span>" + t(k) + "</div>").join("") + "</div>";
+    if (v.stage >= steps.length) {
+      const blur = /blur/i.test(v.file || "");
+      body = '<div class="result ' + (blur ? "bad" : "ok") + '"><span class="big">' + (blur ? t("rerecord") : t("accepted")) + "</span><span>" + (blur ? t("blurNote", { a: d(7), b: d(9) }) : t("acceptedNote")) + '</span><span class="small mono">' + esc(v.file || "") + "</span></div>";
+      if (!blur && S.showVerdict) {
+        const fs = sh.f.filter(f => f.type !== "price");
+        body += '<section class="panel" style="margin-top:12px"><header><h2>' + t("whatAiSaw") + '</h2><span class="small muted">' + t("readOnly") + "</span></header>" +
+          (fs.length ? fs.map(f => '<div class="finding warn"><div class="stripe"></div><div><div class="t">' + esc(fTitle(f)) + '</div><div class="meta">' + (f.shelf !== null ? "<span>" + shelfLabel(f.shelf) + "</span>" : "") + "</div></div></div>").join("") :
+            '<div class="finding ok"><div class="stripe"></div><div><div class="t">' + t("f_clean", { co: esc(coName(curCo())) }) + "</div></div></div>") + "</section>";
+      } else if (!blur) body += '<p class="muted small">' + t("verdictHidden") + "</p>";
+      body += '<div style="margin-top:12px"><button class="btn primary" data-act="newv">' + t("another") + "</button></div>";
+    }
+    return '<div class="pagehead"><div><h1>' + t("newVisit") + "</h1><p>" + esc(L(sh)) + ' · <span class="mono">' + sh.fridge + '</span></p></div></div><section class="panel">' + body + "</section>";
+  }
+  const ready = v.file && v.ck.every(Boolean);
+  return '<div class="pagehead"><div><h1>' + t("newVisit") + '</h1><p class="small">' + t("tipBlur") + "</p></div></div>" +
+    '<section class="panel" style="display:flex;flex-direction:column;gap:14px"><div class="form"><div class="field"><label for="vShop">' + t("selectShop") + '</label><select id="vShop" class="inp" data-act="vshop">' +
+    shops.map(s => '<option value="' + s.id + '"' + (s.id === v.shop ? " selected" : "") + ">" + esc(L(s)) + " · " + s.fridge + "</option>").join("") + '</select></div><div class="field"><label>' + t("fridge") + '</label><span class="chip plain mono" style="align-self:flex-start;padding:6px 10px">' + sh.fridge + "</span></div></div>" +
+    '<div class="drop' + (v.file ? " has" : "") + '">' + icon("cam").replace("<svg", '<svg style="width:32px;height:32px;color:var(--accent)"') + "<strong>" + (v.file ? esc(v.file) : t("uploadVideo")) + '</strong><span class="small muted">' + t("uploadHint") + '</span><div class="row"><label class="btn primary" for="vFile">' + t("chooseFile") + '</label><input id="vFile" type="file" accept="video/*" capture="environment" hidden data-act="vfile"><button class="btn" data-act="vsample">' + t("useSample") + "</button></div></div>" +
+    "<div><h3>" + t("checklist") + "</h3>" + [0, 1, 2].map(i => '<label class="ck"><input type="checkbox" id="ck' + i + '" data-act="vck" data-v="' + i + '"' + (v.ck[i] ? " checked" : "") + ">" + t("ck" + (i + 1)) + "</label>").join("") + "</div>" +
+    '<div><button class="btn primary" data-act="vsubmit"' + (ready ? "" : " disabled") + ">" + t("submit") + "</button></div></section>";
+};
+VIEWS.myVisits = function () {
+  const D = data(curCo());
+  const mine = D.shops.filter(s => s.rep === ME.merch).map(s => ({ s, when: when(s.day, s.hm), st: "processed" }));
+  const extra = S.myExtra.map(v => ({ s: D.shops.find(x => x.id === v.shop), when: t("justNow"), st: v.blur ? "rerecorded" : "underReview" }));
+  const older = [{ s: D.shops[5], when: when(21, "14:22"), st: "processed" }, { s: D.shops[3], when: when(20, "11:05"), st: "rerecorded" }, { s: D.shops[7], when: when(19, "16:40"), st: "processed" }];
+  const all = extra.concat(mine, older);
+  const cls = { processed: "ok", underReview: "warn", rerecorded: "bad" };
+  return '<div class="pagehead"><div><h1>' + t("myVisits") + '</h1></div></div><section class="panel"><div class="tablewrap"><table><thead><tr><th>' + t("lastAudit") + "</th><th>" + t("shop") + "</th><th>" + t("status") + "</th></tr></thead><tbody>" +
+    all.map(x => '<tr><td class="small num">' + x.when + "</td><td><strong>" + esc(L(x.s)) + '</strong><div class="small muted mono">' + x.s.fridge + '</div></td><td><span class="chip ' + cls[x.st] + '">' + t(x.st) + "</span></td></tr>").join("") + "</tbody></table></div></section>";
+};
+VIEWS.profile = function () {
+  const st = repStats(ME.merch);
+  return '<div class="pagehead"><div><h1>' + t("profile") + '</h1></div></div><div class="grid2"><section class="panel" style="display:flex;flex-direction:column;gap:8px"><span class="eyebrow">' + t("trust") + '</span><span class="score">' + d(st.trust) + '%</span><span class="chip ok" style="align-self:flex-start">' + t("scoreGood") + '</span><p class="muted" style="margin:4px 0 0">' + t("trustExplain") + "</p>" +
+    '<div class="kpis" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:8px"><div class="kpi"><span class="eyebrow">' + t("visits") + '</span><span class="v">' + d(st.visits) + '</span></div><div class="kpi"><span class="eyebrow">' + t("intFails") + '</span><span class="v">' + d(st.fails) + '</span></div><div class="kpi"><span class="eyebrow">' + t("overturned") + '</span><span class="v">' + d(st.over) + "</span></div></div></section>" +
+    '<section class="panel"><header><h2>' + t("howToKeep") + "</h2></header>" + ["keep1", "keep2", "keep3", "keep4"].map(k => '<div class="finding ok"><div class="stripe"></div><div class="t" style="cursor:default">' + t(k) + "</div></div>").join("") + "</section></div>";
+};
+
+/* ---------- admin ---------- */
+VIEWS.companies = function () {
+  const rows = S.companies.map(c => {
+    const D = data(c);
+    return '<tr><td><strong>' + esc(coName(c)) + '</strong><div class="small muted">' + esc(c.brands.join(", ")) + '</div></td><td><span class="chip ' + (c.plan === "Pilot" ? "acc" : "plain") + '">' + esc(c.plan) + '</span></td><td class="r num">' + d(D.shops.length) + '</td><td class="r num">' + d(D.shops.length) + '</td><td class="r num">' + d(S.users.filter(u => u.co === c.id).length) + "</td></tr>";
+  }).join("");
+  return '<div class="pagehead"><div><h1>' + t("companies") + "</h1><p>" + t("companiesP") + "</p></div></div>" +
+    '<section class="panel"><div class="tablewrap"><table><thead><tr><th>' + t("company") + "</th><th>" + t("plan") + '</th><th class="r">' + t("shops") + '</th><th class="r">' + t("fridges") + '</th><th class="r">' + t("users") + "</th></tr></thead><tbody>" + rows + "</tbody></table></div></section>" +
+    '<section class="panel"><header><h2>' + t("addCompany") + '</h2></header><form class="form" data-form="co"><div class="field"><label for="nCo">' + t("companyName") + '</label><input id="nCo" class="inp" required placeholder="Square Food & Beverage"></div><div class="field"><label for="nBr">' + t("brandsCsv") + '</label><input id="nBr" class="inp" required placeholder="Chashi, Radhuni"></div><div><button class="btn primary" type="submit">' + t("add") + "</button></div></form></section>";
+};
+VIEWS.users = function () {
+  const rows = S.users.map(u => { const c = S.companies.find(x => x.id === u.co); return "<tr><td><strong>" + esc(u.name) + '</strong></td><td><span class="chip ' + (u.role === "admin" ? "acc" : u.role === "auditor" ? "plain" : "") + '">' + t("role_" + u.role) + '</span></td><td class="small">' + (c ? esc(coName(c)) : "—") + '</td><td><span class="chip ok">' + t("active") + "</span></td></tr>"; }).join("");
+  return '<div class="pagehead"><div><h1>' + t("users") + "</h1><p>" + t("usersP") + '</p></div></div><section class="panel"><div class="tablewrap"><table><thead><tr><th>' + t("name") + "</th><th>" + t("role") + "</th><th>" + t("company") + "</th><th>" + t("status") + "</th></tr></thead><tbody>" + rows + "</tbody></table></div></section>" +
+    '<section class="panel"><header><h2>' + t("addUser") + '</h2></header><form class="form" data-form="user"><div class="field"><label for="nUn">' + t("name") + '</label><input id="nUn" class="inp" required placeholder="Arif Chowdhury"></div><div class="field"><label for="nUr">' + t("role") + '</label><select id="nUr" class="inp"><option value="merch">' + t("role_merch") + '</option><option value="auditor">' + t("role_auditor") + '</option><option value="admin">' + t("role_admin") + '</option></select></div><div class="field"><label for="nUc">' + t("company") + '</label><select id="nUc" class="inp">' + S.companies.map(c => '<option value="' + c.id + '">' + esc(coName(c)) + "</option>").join("") + '</select></div><div><button class="btn primary" type="submit">' + t("add") + "</button></div></form></section>";
+};
+VIEWS.contracts = function () {
+  const co = curCo(); const D = data(co);
+  const rows = D.shops.map(s => '<tr><td><strong>' + esc(L(s)) + '</strong><div class="small muted">' + esc(L(s, "a")) + '</div></td><td class="mono small">' + s.fridge + "</td><td>" + esc(co.brands[0]) + "</td><td>" + shelfLabel(0) + " · " + esc(co.brands[0]) + '</td><td class="r num">৳ ' + d(s.fee.toLocaleString("en-US")) + '</td><td class="small">' + esc(L(REPS[s.rep])) + "</td></tr>").join("");
+  return '<div class="pagehead"><div><h1>' + t("contracts") + "</h1><p>" + esc(coName(co)) + '</p></div></div><section class="panel"><div class="tablewrap"><table><thead><tr><th>' + t("shop") + "</th><th>" + t("fridge") + "</th><th>" + t("ownerBrand") + "</th><th>" + t("paidShelf") + '</th><th class="r">' + t("fee") + "</th><th>" + t("rep") + "</th></tr></thead><tbody>" + rows + "</tbody></table></div></section>";
+};
+VIEWS.brands = function () {
+  const rows = Object.keys(BRAND).map(b => { const c = S.companies.find(x => x.id === BRAND[b].owner); return '<tr><td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:' + BRAND[b].c + ';margin-right:8px"></span><strong>' + esc(b) + "</strong></td><td>" + (c ? esc(coName(c)) : "—") + "</td></tr>"; }).join("");
+  return '<div class="pagehead"><div><h1>' + t("brands") + "</h1><p>" + t("brandsP") + '</p></div></div><section class="panel"><div class="tablewrap"><table><thead><tr><th>' + t("brand") + "</th><th>" + t("owner") + "</th></tr></thead><tbody>" + rows + "</tbody></table></div></section>";
+};
+VIEWS.settings = function () {
+  return '<div class="pagehead"><div><h1>' + t("settings") + '</h1></div></div><section class="panel">' +
+    '<div class="switch"><div style="flex:1;min-width:0"><strong>' + t("threshold") + ' <span class="mono chip acc">' + d(S.threshold.toFixed(2)) + "</span></strong><p>" + t("thresholdD") + '</p><input type="range" id="thr" min="0.5" max="0.99" step="0.01" value="' + S.threshold + '" data-act="thr" aria-label="' + t("threshold") + '"></div></div>' +
+    '<div class="switch"><div><strong>' + t("showVerdict") + "</strong><p>" + t("showVerdictD") + '</p></div><span class="toggle"><input type="checkbox" id="sv" data-act="sv"' + (S.showVerdict ? " checked" : "") + ' aria-label="' + t("showVerdict") + '"><span></span></span></div>' +
+    '<div class="switch"><div><strong>' + t("blurMax") + "</strong><p>" + t("blurMaxD") + '</p></div><span class="chip plain mono">' + d("0.50") + "</span></div>" +
+    '<div class="switch"><div><strong>' + t("fps") + "</strong><p>" + t("fpsD") + '</p></div><select id="fps" class="inp" data-act="fps">' + [1, 2, 4].map(n => '<option value="' + n + '"' + (S.fps === n ? " selected" : "") + ">" + d(n) + " fps</option>").join("") + "</select></div>" +
+    '<div class="switch"><div><strong>' + t("language") + '</strong><p>English · বাংলা</p></div><span class="seg"><button data-act="lang" data-v="en" aria-pressed="' + (S.lang === "en") + '">EN</button><button data-act="lang" data-v="bn" aria-pressed="' + (S.lang === "bn") + '">বাংলা</button></span></div></section>';
+};
+VIEWS.system = function () {
+  const st = (k, cls) => '<span class="chip ' + cls + '">' + t(k) + "</span>";
+  const row = (n, dsc, chip) => '<div class="switch"><div><strong>' + t(n) + "</strong><p>" + t(dsc) + "</p></div>" + chip + "</div>";
+  const fmtT = dt => d(String(dt.getHours()).padStart(2, "0") + ":" + String(dt.getMinutes()).padStart(2, "0"));
+  return '<div class="pagehead"><div><h1>' + t("system") + '</h1></div></div><div class="grid2"><section class="panel"><header><h2>' + t("pipeline") + "</h2></header>" +
+    row("pl1", "pl1d", st("stageWorks", "ok")) + row("pl2", "pl2d", st("stageTest", "warn")) + row("pl3", "pl3d", st("stageTest", "warn")) + row("pl4", "pl4d", st("stageNext", "plain")) + "</section>" +
+    '<section class="panel"><header><h2>' + t("activity") + '</h2></header><div class="log">' + S.log.slice(0, 14).map(e => '<div><span class="mono small muted">' + fmtT(e.at) + "</span><span>" + esc(t(e.k, e.v)) + "</span></div>").join("") + "</div></section></div>";
+};
+
+/* ---------- JSON report ---------- */
+function reportJSON(s) {
+  const co = curCo();
+  return JSON.stringify({
+    report_version: "demo-0.1", company: co.name.en, shop: s.en, area: s.aen, fridge_id: s.fridge, merchandiser: REPS[s.rep].en,
+    visit: "2026-10-" + s.day + "T" + s.hm + ":00+06:00",
+    video: { sha256: s.sha, keyframes: FRAMES.slice(0, s.integ.coverage).map(f => ({ t: f.t, shelf: f.shelf + 1 })) },
+    integrity: { reused_footage: s.integ.reused !== null, shelves_filmed: s.integ.coverage + "/4", asset_sticker_match: s.integ.sticker, gps: "planned" },
+    kpis: { cooler_purity: +purityOf(s).toFixed(2), paid_placement_ok: !hasViolation(s, "placement") },
+    findings: s.f.map(f => ({ type: f.type, brand: f.brand || null, shelf: f.shelf === null ? null : f.shelf + 1, keyframe_t: f.shelf === null ? null : fTime(f), confidence: f.conf, status: fStatus(s, f) })),
+    recommendation: suggest(s), auditor_decision: S.finals[s.id] || null
+  }, null, 2);
+}
+function openModal(title, body) {
+  document.getElementById("modal").innerHTML = '<div class="modal" data-act="mclose"><div class="box2" role="dialog" aria-modal="true" aria-label="' + esc(title) + '"><header><h2>' + esc(title) + '</h2><span style="display:flex;gap:8px"><button class="btn" data-act="mcopy">' + t("copy") + '</button><button class="btn" data-act="mclose" data-x="1">' + t("close") + '</button></span></header><pre id="mpre">' + esc(body) + "</pre></div></div>";
+}
+
+/* ---------- events ---------- */
+function go(view) { S.view = view; S.shop = null; S.sel = null; render(); const a = document.getElementById("app"); if (a) a.scrollTop = 0; }
+let timer = null;
+function runVisit() {
+  const v = S.visit; v.stage = 0; render();
+  clearInterval(timer);
+  timer = setInterval(() => {
+    v.stage++;
+    if (v.stage >= 5) {
+      clearInterval(timer);
+      const blur = /blur/i.test(v.file || "");
+      S.myExtra.unshift({ shop: v.shop, blur });
+      const sh = data(curCo()).shops.find(s => s.id === v.shop);
+      logIt("logVisit", { u: REPS[ME.merch].en, s: sh.en });
+    }
+    if (S.view === "newVisit") render();
+  }, 650);
+}
+
+document.addEventListener("click", e => {
+  const el = e.target.closest("[data-act]"); if (!el) return;
+  const a = el.dataset.act, v = el.dataset.v;
+  if (a === "mclose") { if (e.target === el || el.dataset.x) document.getElementById("modal").innerHTML = ""; return; }
+  if (a === "mcopy") {
+    const txt = document.getElementById("mpre").textContent;
+    const done = () => { el.textContent = t("copied"); };
+    const fallback = () => { const r = document.createRange(); r.selectNodeContents(document.getElementById("mpre")); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); };
+    try { navigator.clipboard.writeText(txt).then(done, fallback); } catch (err) { fallback(); }
+    return;
+  }
+  if (a === "device") { S.device = v; store.set("device", v); render(); return; }
+  if (a === "lang") { S.lang = v; store.set("lang", v); render(); return; }
+  if (a === "theme") { if (v === "system") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", v); renderDemo(); return; }
+  if (a === "login") { S.role = v; if (v === "merch") S.co = "coke"; go(NAV[v][0][0]); return; }
+  if (a === "logout") { S.role = null; S.view = ""; S.shop = null; render(); return; }
+  if (a === "nav") { go(v); return; }
+  if (a === "shop") { S.view = "shops"; S.shop = v; S.frame = 0; S.sel = null; render(); document.getElementById("app").scrollTop = 0; return; }
+  if (a === "openf") {
+    const s = data(curCo()).shops.find(x => x.id === v); const f = s.f.find(x => x.id === el.dataset.f);
+    S.view = "shops"; S.shop = v; S.sel = f.id;
+    const fi = FRAMES.findIndex(x => x.shelf === f.shelf); S.frame = fi >= 0 ? fi : 0; render(); return;
+  }
+  if (a === "backshop") { S.shop = null; S.sel = null; render(); return; }
+  if (a === "frame") { S.frame = +v; render(); return; }
+  if (a === "self") {
+    const s = data(curCo()).shops.find(x => x.id === S.shop); const f = s.f.find(x => x.id === el.dataset.f);
+    S.sel = f.id; const fi = FRAMES.findIndex(x => x.shelf === f.shelf); if (fi >= 0) S.frame = fi; render(); return;
+  }
+  if (a === "dec") {
+    const key = v + ":" + el.dataset.f; const s = data(curCo()).shops.find(x => x.id === v); const f = s.f.find(x => x.id === el.dataset.f);
+    if (el.dataset.d) { S.decisions[key] = el.dataset.d; logIt(el.dataset.d === "confirmed" ? "logConfirm" : "logOver", { u: ME.auditor, f: TX.en["f_" + f.type].replace("{b}", f.brand || "").replace("{n}", f.n || ""), s: s.en }); }
+    else delete S.decisions[key];
+    render(); return;
+  }
+  if (a === "final") { const s = data(curCo()).shops.find(x => x.id === v); S.finals[v] = S.finals[v] === el.dataset.d ? undefined : el.dataset.d; if (!S.finals[v]) delete S.finals[v]; else logIt("logDecide", { u: ME.auditor, s: s.en, d: TX.en[el.dataset.d] }); render(); return; }
+  if (a === "json") { const s = data(curCo()).shops.find(x => x.id === v); openModal(t("exportJson") + " · " + s.en, reportJSON(s)); return; }
+  if (a === "startv") { S.visit = { shop: v, file: null, ck: [false, false, false], stage: -1 }; go("newVisit"); return; }
+  if (a === "vsample") { S.visit.file = "fridge_01.mp4 · 6.4 s · 576×1024"; render(); return; }
+  if (a === "vsubmit") { runVisit(); return; }
+  if (a === "newv") { S.visit = null; render(); return; }
+});
+document.addEventListener("change", e => {
+  const el = e.target; const a = el.dataset && el.dataset.act; if (!a) return;
+  if (a === "co") { S.co = el.value; S.shop = null; S.sel = null; render(); return; }
+  if (a === "vshop") { S.visit.shop = el.value; render(); return; }
+  if (a === "vfile") { const f = el.files && el.files[0]; if (f) { S.visit.file = f.name + " · " + (f.size / 1048576).toFixed(1) + " MB"; render(); } return; }
+  if (a === "vck") { S.visit.ck[+el.dataset.v] = el.checked; render(); return; }
+  if (a === "sv") { S.showVerdict = el.checked; render(); return; }
+  if (a === "fps") { S.fps = +el.value; return; }
+  if (a === "thr") { logIt("logThr", { v: S.threshold.toFixed(2) }); return; }
+});
+document.addEventListener("input", e => {
+  if (e.target.dataset && e.target.dataset.act === "thr") {
+    S.threshold = +e.target.value;
+    const chip = e.target.parentElement.querySelector(".chip"); if (chip) chip.textContent = d(S.threshold.toFixed(2));
+  }
+});
+document.addEventListener("submit", e => {
+  e.preventDefault();
+  const form = e.target.dataset.form;
+  if (form === "co") {
+    const name = document.getElementById("nCo").value.trim(); const brands = document.getElementById("nBr").value.split(",").map(x => x.trim()).filter(Boolean);
+    if (!name || !brands.length) return;
+    const id = "c" + Date.now();
+    brands.forEach(b => { if (!BRAND[b]) BRAND[b] = { c: "#5B6B9E", owner: id }; });
+    while (brands.length < 3) brands.push(brands[brands.length - 1]);
+    S.companies.push({ id, name: { en: name, bn: name }, prefix: name.replace(/[^A-Za-z]/g, "").slice(0, 2).toUpperCase() || "XX", brands, rivals: ["Coca-Cola", "Pepsi"], plan: "Trial", fee: 1000 });
+    logIt("logCo", { c: name }); render();
+  }
+  if (form === "user") {
+    const name = document.getElementById("nUn").value.trim(); if (!name) return;
+    S.users.push({ name, role: document.getElementById("nUr").value, co: document.getElementById("nUc").value });
+    logIt("logUser", { c: name }); render();
+  }
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") document.getElementById("modal").innerHTML = "";
+  if ((e.key === "Enter" || e.key === " ") && e.target.matches("tr.click, .finding .t[data-act]")) { e.preventDefault(); e.target.click(); }
+});
+
+const h = (location.hash || "").replace("#", "");
+if (h === "merchandiser") S.role = "merch"; else if (h === "auditor") S.role = "auditor"; else if (h === "admin") S.role = "admin";
+if (S.role) S.view = NAV[S.role][0][0];
+render();
+})();
+</script>
+
+</body>
+</html>
