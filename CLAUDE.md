@@ -219,6 +219,21 @@ runs). Lessons:
   a client). All shops/audits are **sample data** labelled as demo; only the System page shows real
   pipeline numbers. Admin setting "Show AI results to merchandisers" (on by default).
 - Class every Sunday shows weekly progress; reports are due on other days.
+- Run locally: double-click `start_dashboard.bat` (http://localhost:8000, works offline). After editing
+  `app/mockup/index.html`, run `python scripts/build_mockup_site.py`. `#evidence` opens an evidence view.
+
+## Real client: NutriCoco (2026-10-25)
+- NutriCoco makes **Coco Fresh Coconut Pudding** (150-160 g green cup, milk + coconut water, must be
+  chilled; strawberry and mango coming). Facebook: https://www.facebook.com/cocofreshpudding/
+- They pay **Shwapno and local stores in Mirpur 10 and 11** about **135 Tk/day per shop** (4,050 Tk per
+  30 days) to keep the cups at the **front of the shop fridge** (a shared fridge, not branded). They
+  cannot check compliance today: this is ShelfSense's use case, and it matches our open-shelf/fridge
+  supermarket data better than the branded-fridge case.
+- They agreed in writing to work with the team. Pilot agreement drafted for the CEO to sign:
+  https://claude.ai/artifact/1R1AWCnfy961XvotEk42wR (placeholders: CEO name, registered name, address,
+  end date, Annex A shop list).
+- Product photos in `data/samples/nutricoco/` (gitignored). Dashboard: NutriCoco is the default company,
+  "shelf" audit kind (paid front zone = shelf 2, 4 cups; cups-per-shop is a placeholder until Annex A).
 
 ## Weekly reports
 - Written in LaTeX on Overleaf using the course template (IEEEtran, onecolumn journal), with `ref.bib`.
