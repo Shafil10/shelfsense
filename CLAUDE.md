@@ -222,6 +222,14 @@ runs). Lessons:
 - Run locally: double-click `start_dashboard.bat` (http://localhost:8000, works offline). After editing
   `app/mockup/index.html`, run `python scripts/build_mockup_site.py`. `#evidence` opens an evidence view.
 
+- Features added after the competitor review (FieldPro, EasyPicky, BeatRoute, Bridge FieldOps): Perfect
+  Store score per shop (placement 40, stock 25, price tags 10, evidence 25), rule-based "ShelfSense
+  Assistant" alerts (no LLM), corrective actions / merchandiser missions, schematic coverage map, beat
+  adherence + avg time in shop, GPS check-in distance (simulated), offline capture queue (simulated).
+- Market context for reports ([dataintelo](https://dataintelo.com/report/retail-execution-monitoring-ai-market),
+  vendor report, cite as such): retail execution monitoring AI $3.8B (2025) -> $14.2B (2034), CAGR 15.8%;
+  Asia Pacific fastest-growing (CAGR 18.4%); regional players Infilect, ParallelDots.
+
 ## Real client: NutriCoco (2026-10-25)
 - NutriCoco makes **Coco Fresh Coconut Pudding** (150-160 g green cup, milk + coconut water, must be
   chilled; strawberry and mango coming). Facebook: https://www.facebook.com/cocofreshpudding/

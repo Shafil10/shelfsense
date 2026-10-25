@@ -212,6 +212,62 @@ svg.fridge { width: 100%; max-width: 340px; height: auto; display: block; margin
 .fr-tag { fill: #FFD84A; opacity: .75; }
 .fr-paid { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 5 4; filter: drop-shadow(0 0 6px var(--glow)); animation: dash 1.6s linear infinite; }
 .fr-paidtx { fill: var(--accent); font-family: var(--font-mono); font-size: 9px; font-weight: 500; letter-spacing: 1px; }
+/* assistant alerts */
+.assistant { background: linear-gradient(135deg, var(--accent-soft), var(--surface) 60%); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+.assistant h2 { display: flex; align-items: center; gap: 8px; }
+.spark { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--on-accent); box-shadow: 0 0 16px var(--glow); }
+.spark svg { width: 16px; height: 16px; animation: twinkle 3s ease-in-out infinite; }
+@keyframes twinkle { 50% { transform: scale(.85) rotate(15deg); opacity: .8; } }
+.alerts { display: flex; flex-direction: column; gap: 8px; }
+.alrt { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); }
+.alrt .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--warn); box-shadow: 0 0 10px var(--warn); }
+.alrt.bad .dot { background: var(--bad); box-shadow: 0 0 10px var(--bad); animation: blink 1.6s ease-in-out infinite; }
+.alrt .tx { font-size: 0.86rem; }
+.alrt .btn { padding: 5px 10px; font-size: 0.78rem; }
+/* coverage map */
+svg.map { width: 100%; height: auto; display: block; border-radius: 12px; }
+.map-bg { fill: var(--fridge-in); }
+.map-street { stroke: var(--line); stroke-width: 1; }
+.map-road { fill: none; stroke: var(--line-strong); stroke-width: 7; stroke-linecap: round; opacity: .7; }
+.map-water { fill: none; stroke: var(--accent); stroke-width: 10; opacity: .12; stroke-linecap: round; }
+.map-zone { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1; stroke-dasharray: 4 4; opacity: .7; }
+.map-area { fill: var(--muted); font-family: var(--font-mono); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+html[lang="bn"] .map-area { font-family: "Noto Sans Bengali", "Nirmala UI", sans-serif; text-transform: none; letter-spacing: 0; font-size: 12px; }
+.pin { cursor: pointer; }
+.pin-body { stroke: var(--bg); stroke-width: 1.5; filter: drop-shadow(0 3px 6px rgba(0, 0, 0, .4)); transition: transform .2s var(--ease); transform-box: fill-box; transform-origin: bottom center; }
+.pin:hover .pin-body, .pin:focus .pin-body { transform: scale(1.2); }
+.pin-dot { fill: var(--bg); }
+.pin-lbl { fill: var(--fg); font-size: 9.5px; font-weight: 600; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
+.pin.pay .pin-body { fill: var(--ok); } .pin.hold .pin-body { fill: var(--bad); } .pin.reaudit .pin-body { fill: var(--warn); } .pin.pending .pin-body { fill: var(--muted); }
+.pin-halo { fill: none; stroke-width: 2; transform-box: fill-box; transform-origin: center; animation: ping 2s var(--ease) infinite; }
+.pin.hold .pin-halo { stroke: var(--bad); } .pin.reaudit .pin-halo { stroke: var(--warn); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-size: 0.78rem; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.lg { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.lg.pay { background: var(--ok); } .lg.hold { background: var(--bad); } .lg.reaudit { background: var(--warn); } .lg.pending { background: var(--muted); }
+/* score */
+.leader { display: flex; flex-direction: column; gap: 4px; }
+.lrow { display: grid; grid-template-columns: 22px minmax(0, 1fr) minmax(60px, 120px) 46px; gap: 10px; align-items: center; padding: 7px 8px; border-radius: 10px; cursor: pointer; font-size: 0.84rem; transition: background .15s; }
+.lrow:hover { background: var(--accent-soft); }
+.lrow .rank { color: var(--muted); font-size: 0.75rem; }
+.lrow .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lrow .chip { justify-content: center; }
+.scorebox { display: flex; flex-wrap: wrap; gap: 24px; align-items: center; }
+.ringwrap { position: relative; width: 92px; height: 92px; flex: none; }
+.ringwrap svg { position: absolute; inset: 0; }
+.ringnum { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--font-display); font-size: 1.9rem; font-weight: 700; }
+.ring-bg { fill: none; stroke: var(--surface-2); stroke-width: 8; }
+.ring-fg { fill: none; stroke-width: 8; stroke-linecap: round; }
+.ring-s.ok .ring-fg { stroke: var(--ok); filter: drop-shadow(0 0 6px var(--ok)); } .ring-s.warn .ring-fg { stroke: var(--warn); filter: drop-shadow(0 0 6px var(--warn)); } .ring-s.bad .ring-fg { stroke: var(--bad); filter: drop-shadow(0 0 6px var(--bad)); }
+.enter .ring-fg { animation: ringin 1.4s var(--ease) both; animation-delay: .3s; }
+@keyframes ringin { from { stroke-dasharray: 0 999; } }
+.sparts { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 8px; }
+.sparts .row { display: grid; grid-template-columns: 90px minmax(0, 1fr) 44px; gap: 10px; align-items: center; font-size: 0.82rem; }
+.gps { display: inline-flex; align-items: center; gap: 4px; color: var(--ok); font-family: var(--font-mono); font-size: 0.72rem; }
+.gps svg { width: 13px; height: 13px; }
+div.gps { padding: 8px 12px; border-radius: 10px; background: var(--ok-soft); border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent); font-size: 0.8rem; }
+.result.warn-r { background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
+.result.warn-r .big { color: var(--warn); }
 .prod { display: flex; gap: 12px; align-items: center; padding: 8px 14px 8px 8px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); max-width: 100%; min-width: 0; }
 .prod img { height: 64px; width: auto; border-radius: 10px; flex: none; }
 img.thumb { height: 36px; width: auto; border-radius: 8px; vertical-align: middle; margin-right: 10px; float: left; }
@@ -435,10 +491,10 @@ const SHOPS = [
   { en: "Sonali Store", bn: "সোনালী স্টোর", aen: "Bashundhara R/A", abn: "বসুন্ধরা আ/এ", rep: 2, sc: "competitor_confirmed", day: 22, hm: "17:15" }
 ];
 const REPS = [
-  { en: "Rahim Uddin", bn: "রহিম উদ্দিন", visits: 42, fails: 0, over: 0 },
-  { en: "Jamal Hossain", bn: "জামাল হোসেন", visits: 38, fails: 3, over: 2 },
-  { en: "Tania Akter", bn: "তানিয়া আক্তার", visits: 35, fails: 1, over: 1 },
-  { en: "Sumon Mia", bn: "সুমন মিয়া", visits: 29, fails: 0, over: 1 }
+  { en: "Rahim Uddin", bn: "রহিম উদ্দিন", visits: 42, fails: 0, over: 0, beat: 96, mins: 6 },
+  { en: "Jamal Hossain", bn: "জামাল হোসেন", visits: 38, fails: 3, over: 2, beat: 71, mins: 2 },
+  { en: "Tania Akter", bn: "তানিয়া আক্তার", visits: 35, fails: 1, over: 1, beat: 88, mins: 5 },
+  { en: "Sumon Mia", bn: "সুমন মিয়া", visits: 29, fails: 0, over: 1, beat: 92, mins: 7 }
 ];
 /* NutriCoco pays Shwapno and local stores in Mirpur 10/11. Local store names are placeholders. */
 const NC_SHOPS = [
@@ -473,12 +529,12 @@ const TX = {
     shop: "Shop", area: "Area", fridge: "Fridge", lastAudit: "Last audit", integrity: "Integrity", action: "Recommendation", rep: "Merchandiser", purityCol: "Purity",
     pay: "Pay incentive", hold: "Hold payment", reaudit: "Re-audit", pending: "Waiting for review", ok: "OK",
     visits: "Visits", intFails: "Integrity fails", overturned: "Overturned", trust: "Trust",
-    merchsP: "Trust falls when a merchandiser's videos fail integrity checks or their findings are overturned. A low score is a reason to re-check that person's shops.",
+    merchsP: "Trust falls when a merchandiser's videos fail integrity checks or their findings are overturned. A low score is a reason to re-check that person's shops. Low beat adherence and very short visits are warning signs too.",
     findings: "Findings", conf: "confidence", confirm: "Confirm", overturn: "Overturn", undo: "Undo",
     f_competitor: "Competitor brand: {b}", f_placement: "Paid shelf not filled with {b}", f_oos: "{n} empty slots", f_price: "Price tags not found", f_okPlacement: "Paid shelf holds {b}", f_clean: "Only {co} brands in the fridge",
     shelf: "Shelf {n}", eye: "eye level",
     st_auto: "Auto-confirmed", st_review: "Needs review", st_confirmed: "Confirmed by auditor", st_overturned: "Overturned by auditor", st_info: "For information",
-    i_hash: "SHA-256 recorded", i_new: "Not seen in earlier audits", i_reused: "Same footage as audit of {d}", i_sticker: "Asset sticker reads {id}", i_cov: "Shelves filmed: {a} of {b}", i_date: "File date matches visit", i_gps: "GPS check-in (planned)",
+    i_hash: "SHA-256 recorded", i_new: "Not seen in earlier audits", i_reused: "Same footage as audit of {d}", i_sticker: "Asset sticker reads {id}", i_cov: "Shelves filmed: {a} of {b}", i_date: "File date matches visit", i_gps: "GPS check-in {m} m from the shop",
     evidence: "Evidence", frames: "Keyframes", notFilmed: "Not filmed",
     aiSuggests: "ShelfSense suggests", decision: "Your decision", exportJson: "View JSON report", copy: "Copy", copied: "Copied", close: "Close", back: "All shops",
     reviewP: "The AI never accuses a shop on its own. Any finding below {th} confidence waits here until a person has looked at the evidence.",
@@ -511,7 +567,30 @@ const TX = {
     paidTag: "PAID · FRONT", shelfDeal: "Fridge front, shelf 2, {n} cups", newClient: "New client", facebook: "Facebook page", frontDeal: "paid fridge-front placement",
     aisle: "SHOP FRIDGE · CHILLED",
     payTitle: "Shop payments this month", payNote: "৳{a} a day per shop × 30 days. Held money is released only when the video shows the cups at the fridge front.",
-    payTotal: "Paid to {n} shops", payHeld: "On hold · {n} shops", payWait: "Waiting for review · {n}"
+    payTotal: "Paid to {n} shops", payHeld: "On hold · {n} shops", payWait: "Waiting for review · {n}",
+    actions: "Actions", actionsP: "Corrective actions turn findings into work. The merchandiser fixes the problem and films the fridge again as proof.",
+    assistant: "ShelfSense Assistant", assistantD: "Rule-based alerts from the latest audits", open: "Open",
+    in_money: "৳{a} of this month's shop payments is on hold at {n} shops.",
+    in_trust: "{r}'s trust is {n}%: {f} of their videos failed integrity checks. Send someone else to re-check their shops.",
+    in_short: "{r} spends only {n} min per shop on average. Very short visits can mean rushed or faked videos.",
+    in_review: "{n} findings are waiting for a person to check the evidence.",
+    in_low: "{s} has the lowest Perfect Store score ({n}/100).",
+    in_overdue: "Corrective actions past their due date: {n}.",
+    score: "Perfect Store score", scoreCol: "Score", scoreD: "Placement 40 · Stock 25 · Price tags 10 · Evidence 25",
+    sc_place: "Placement", sc_avail: "Stock", sc_price: "Price tags", sc_evid: "Evidence", leader: "Perfect Store ranking",
+    mapTitle: "Coverage map", mapD: "Click a pin to open the shop's audit",
+    act_facings: "Put {n} more {b} cups back at the fridge front", act_placement: "Move {b} back to the paid spot", act_competitor: "Remove {b} from the fridge",
+    act_oos: "Restock {b} in the paid spot", act_price: "Put up price tags", act_refilm: "Re-film the fridge at the shop, today",
+    createAction: "Create action", actionMade: "Action created", due: "Due", assigned: "Assigned to",
+    st_open: "Open", st_done: "Done", st_overdue: "Overdue", markDone: "Mark done", reopen: "Reopen", noActions: "No actions yet. Create one from a finding in an audit.",
+    missions: "My missions", missionsEmpty: "No missions. Nice work.", missionHint: "Fix it, then film the fridge again as proof",
+    beat: "Beat adherence", timeShop: "Avg time in shop", minutes: "{n} min",
+    checkedIn: "checked in {t}, {m} m away", checkedAt: "Checked in at {t}",
+    checkin: "Check in at the shop", checkinBtn: "Check in with GPS", checkinDone: "Checked in · {lat}° N, {lon}° E · {m} m from the shop", checkinNote: "Location is simulated in this demo.",
+    offline: "No internet (test offline mode)", savedOffline: "Saved on this phone", savedOfflineD: "No internet. The video uploads by itself when you are back online.",
+    uploadNow: "Back online: upload now", queued: "{n} video waiting to upload",
+    i_gpsFar: "GPS check-in {m} km from the shop",
+    logAction: "{u} created action \"{a}\" at {s}", logActionDone: "Action done: \"{a}\" at {s}"
   },
   bn: {
     demo: "ডেমো প্রোটোটাইপ · নমুনা ডেটা · AI ফলাফল সিমুলেটেড", view: "ভিউ", web: "ওয়েব", phone: "মোবাইল", switchRole: "ভূমিকা বদলান", theme: "থিম",
@@ -536,7 +615,7 @@ const TX = {
     f_competitor: "প্রতিযোগী ব্র্যান্ড: {b}", f_placement: "পেইড তাকে {b} নেই", f_oos: "{n}টি খালি জায়গা", f_price: "দামের ট্যাগ পাওয়া যায়নি", f_okPlacement: "পেইড তাকে {b} আছে", f_clean: "ফ্রিজে শুধু {co}-এর ব্র্যান্ড",
     shelf: "তাক {n}", eye: "চোখের সমান",
     st_auto: "স্বয়ংক্রিয় নিশ্চিত", st_review: "যাচাই বাকি", st_confirmed: "অডিটর নিশ্চিত করেছেন", st_overturned: "অডিটর বাতিল করেছেন", st_info: "তথ্যের জন্য",
-    i_hash: "SHA-256 সংরক্ষিত", i_new: "আগের কোনো অডিটে দেখা যায়নি", i_reused: "{d}-এর অডিটের একই ভিডিও", i_sticker: "অ্যাসেট স্টিকার: {id}", i_cov: "ভিডিও করা তাক: {b}টির মধ্যে {a}টি", i_date: "ফাইলের তারিখ ভিজিটের সাথে মিলেছে", i_gps: "GPS চেক-ইন (পরিকল্পিত)",
+    i_hash: "SHA-256 সংরক্ষিত", i_new: "আগের কোনো অডিটে দেখা যায়নি", i_reused: "{d}-এর অডিটের একই ভিডিও", i_sticker: "অ্যাসেট স্টিকার: {id}", i_cov: "ভিডিও করা তাক: {b}টির মধ্যে {a}টি", i_date: "ফাইলের তারিখ ভিজিটের সাথে মিলেছে", i_gps: "GPS চেক-ইন দোকান থেকে {m} মিটার",
     evidence: "প্রমাণ", frames: "কী-ফ্রেম", notFilmed: "ভিডিও হয়নি",
     aiSuggests: "ShelfSense-এর সুপারিশ", decision: "আপনার সিদ্ধান্ত", exportJson: "JSON রিপোর্ট দেখুন", copy: "কপি", copied: "কপি হয়েছে", close: "বন্ধ", back: "সব দোকান",
     reviewP: "AI একা কোনো দোকানকে দোষী করে না। {th}-এর কম নিশ্চয়তার ফলাফল এখানে অপেক্ষা করে, যতক্ষণ না কেউ প্রমাণ দেখে সিদ্ধান্ত নেন।",
@@ -569,7 +648,30 @@ const TX = {
     paidTag: "পেইড · সামনে", shelfDeal: "ফ্রিজের সামনে, তাক ২, {n}টি কাপ", newClient: "নতুন ক্লায়েন্ট", facebook: "ফেসবুক পেজ", frontDeal: "ফ্রিজের সামনে পেইড প্লেসমেন্ট",
     aisle: "দোকানের ফ্রিজ · ঠান্ডা",
     payTitle: "এ মাসে দোকানের পেমেন্ট", payNote: "প্রতি দোকানে দিনে ৳{a} × ৩০ দিন। ভিডিওতে কাপ ফ্রিজের সামনে দেখা গেলেই স্থগিত টাকা ছাড়া হয়।",
-    payTotal: "{n}টি দোকানে মোট", payHeld: "স্থগিত · {n}টি দোকান", payWait: "যাচাইয়ের অপেক্ষায় · {n}"
+    payTotal: "{n}টি দোকানে মোট", payHeld: "স্থগিত · {n}টি দোকান", payWait: "যাচাইয়ের অপেক্ষায় · {n}",
+    actions: "করণীয়", actionsP: "সংশোধনী কাজ ফলাফলকে কাজে রূপ দেয়। মার্চেন্ডাইজার সমস্যা ঠিক করে প্রমাণ হিসেবে আবার ফ্রিজের ভিডিও করেন।",
+    assistant: "ShelfSense সহকারী", assistantD: "সর্বশেষ অডিট থেকে নিয়মভিত্তিক সতর্কতা", open: "খুলুন",
+    in_money: "এ মাসের দোকান পেমেন্টের ৳{a} {n}টি দোকানে স্থগিত আছে।",
+    in_trust: "{r}-এর আস্থা {n}%: তাঁর {f}টি ভিডিও সত্যতা যাচাইয়ে ব্যর্থ। তাঁর দোকানগুলো অন্য কাউকে দিয়ে আবার যাচাই করান।",
+    in_short: "{r} প্রতি দোকানে গড়ে মাত্র {n} মিনিট থাকেন। খুব ছোট ভিজিট মানে তাড়াহুড়ো বা ভুয়া ভিডিও হতে পারে।",
+    in_review: "{n}টি ফলাফল প্রমাণ যাচাইয়ের জন্য মানুষের অপেক্ষায়।",
+    in_low: "{s}-এর Perfect Store স্কোর সবচেয়ে কম ({n}/১০০)।",
+    in_overdue: "{n}টি সংশোধনী কাজের নির্ধারিত তারিখ পেরিয়ে গেছে।",
+    score: "Perfect Store স্কোর", scoreCol: "স্কোর", scoreD: "প্লেসমেন্ট ৪০ · স্টক ২৫ · দামের ট্যাগ ১০ · প্রমাণ ২৫",
+    sc_place: "প্লেসমেন্ট", sc_avail: "স্টক", sc_price: "দামের ট্যাগ", sc_evid: "প্রমাণ", leader: "Perfect Store র‍্যাংকিং",
+    mapTitle: "কভারেজ ম্যাপ", mapD: "দোকানের অডিট খুলতে পিনে ক্লিক করুন",
+    act_facings: "ফ্রিজের সামনে আরও {n}টি {b} কাপ রাখুন", act_placement: "{b} আবার পেইড জায়গায় রাখুন", act_competitor: "ফ্রিজ থেকে {b} সরান",
+    act_oos: "পেইড জায়গায় {b} আবার ভরুন", act_price: "দামের ট্যাগ লাগান", act_refilm: "আজই দোকানে গিয়ে আবার ফ্রিজের ভিডিও করুন",
+    createAction: "করণীয় তৈরি", actionMade: "করণীয় তৈরি হয়েছে", due: "শেষ তারিখ", assigned: "দায়িত্বে",
+    st_open: "চলমান", st_done: "সম্পন্ন", st_overdue: "সময় পেরিয়েছে", markDone: "সম্পন্ন করুন", reopen: "আবার খুলুন", noActions: "এখনো কোনো করণীয় নেই। অডিটের কোনো ফলাফল থেকে তৈরি করুন।",
+    missions: "আমার মিশন", missionsEmpty: "কোনো মিশন নেই। ভালো কাজ।", missionHint: "ঠিক করুন, তারপর প্রমাণ হিসেবে আবার ভিডিও করুন",
+    beat: "রুট মানা", timeShop: "দোকানে গড় সময়", minutes: "{n} মিনিট",
+    checkedIn: "চেক-ইন {t}, {m} মিটার দূরে", checkedAt: "চেক-ইন {t}",
+    checkin: "দোকানে চেক-ইন", checkinBtn: "GPS দিয়ে চেক-ইন", checkinDone: "চেক-ইন হয়েছে · {lat}° N, {lon}° E · দোকান থেকে {m} মিটার", checkinNote: "এই ডেমোতে লোকেশন সিমুলেটেড।",
+    offline: "ইন্টারনেট নেই (অফলাইন মোড পরীক্ষা)", savedOffline: "এই ফোনে সংরক্ষিত", savedOfflineD: "ইন্টারনেট নেই। আবার অনলাইনে এলে ভিডিও নিজে থেকে আপলোড হবে।",
+    uploadNow: "অনলাইনে ফিরেছি: এখন আপলোড", queued: "{n}টি ভিডিও আপলোডের অপেক্ষায়",
+    i_gpsFar: "GPS চেক-ইন দোকান থেকে {m} কিমি দূরে",
+    logAction: "{u} করণীয় তৈরি করেছেন \"{a}\" ({s})", logActionDone: "করণীয় সম্পন্ন: \"{a}\" ({s})"
   }
 };
 
@@ -577,7 +679,7 @@ const TX = {
 const S = {
   role: null, lang: "en", co: "nutricoco", view: "", device: "web",
   shop: null, frame: 0, sel: null, threshold: 0.85, showVerdict: true, fps: 4,
-  decisions: {}, finals: {}, log: [], visit: null, myExtra: [],
+  decisions: {}, finals: {}, log: [], visit: null, myExtra: [], actions: {}, queued: 0,
   companies: COMPANIES.slice(),
   users: [
     { name: "Rahim Uddin", role: "merch", co: "coke" }, { name: "Jamal Hossain", role: "merch", co: "coke" },
@@ -616,7 +718,7 @@ function data(co) {
   if (CACHE[co.id]) return CACHE[co.id];
   const r = rng(hashStr(co.id));
   const own = co.brands;
-  if (co.kind === "shelf") return (CACHE[co.id] = shelfData(co, r));
+  if (co.kind === "shelf") return (CACHE[co.id] = withGps(shelfData(co, r), r));
   const shops = SHOPS.map((s, i) => {
     const rival = co.rivals[i % co.rivals.length];
     const slots = [];
@@ -646,8 +748,13 @@ function data(co) {
   });
   const trendBase = [];
   for (let w = 0; w < 7; w++) trendBase.push(0.68 + r() * 0.2);
-  CACHE[co.id] = { shops, trendBase, avoided: 9 + Math.floor(r() * 10) };
+  CACHE[co.id] = withGps({ shops, trendBase, avoided: 9 + Math.floor(r() * 10) }, r);
   return CACHE[co.id];
+}
+/* GPS distance of the check-in from the shop, in metres (demo values; a reused video was "filmed" 2.4 km away) */
+function withGps(D, r) {
+  D.shops.forEach(s => { s.integ.gps = s.integ.reused !== null ? 2400 : 8 + Math.floor(r() * 30); s.checkin = s.hm; });
+  return D;
 }
 
 /* open-shelf client (NutriCoco): the paid spot is the front of the eye-level shelf (shelf 2) */
@@ -732,8 +839,69 @@ function repStats(i) {
     s.f.forEach(f => { if (S.decisions[s.id + ":" + f.id] === "overturned") over++; });
   });
   const trust = Math.max(0, Math.min(100, 100 - fails * 6 - over * 4));
-  return { visits: base.visits, fails, over, trust };
+  return { visits: base.visits, fails, over, trust, beat: base.beat, mins: base.mins };
 }
+/* Perfect Store score (0-100): placement 40, stock 25, price tags 10, evidence 25. null when the video failed integrity. */
+function scoreParts(shop) {
+  if (integrityFail(shop)) return null;
+  const co = curCo();
+  const place = co.kind === "shelf" ? (hasViolation(shop, "placement") ? 0 : facingsOf(shop) / AGREED)
+    : (hasViolation(shop, "placement") ? 0.5 : 1) * (hasViolation(shop, "competitor") ? purityOf(shop) * 0.5 : 1);
+  let gaps = 0, slots = 0; shop.slots.forEach(r => r.forEach(b => { slots++; if (!b) gaps++; }));
+  const avail = Math.max(0, 1 - 4 * gaps / slots);
+  const pf = shop.f.find(f => f.type === "price");
+  const price = pf && fStatus(shop, pf) !== "overturned" ? 0 : 1;
+  const p = { place: Math.round(40 * place), avail: Math.round(25 * avail), price: 10 * price, evid: 25 };
+  p.total = p.place + p.avail + p.price + p.evid;
+  return p;
+}
+function scoreCls(n) { return n >= 80 ? "ok" : n >= 60 ? "warn" : "bad"; }
+function scoreRing(n, r) {
+  const c = 2 * Math.PI * r, w = r * 2 + 8;
+  return '<svg class="ring-s ' + scoreCls(n) + '" viewBox="0 0 ' + w + " " + w + '" width="' + w + '" height="' + w + '" aria-hidden="true"><circle cx="' + w / 2 + '" cy="' + w / 2 + '" r="' + r + '" class="ring-bg"/><circle cx="' + w / 2 + '" cy="' + w / 2 + '" r="' + r + '" class="ring-fg" stroke-dasharray="' + (c * n / 100).toFixed(1) + " " + c.toFixed(1) + '" transform="rotate(-90 ' + w / 2 + " " + w / 2 + ')"/></svg>';
+}
+
+/* corrective actions: a confirmed finding becomes a task; the merchandiser fixes it and films again */
+const TODAY = 25;
+function actions() {
+  const co = curCo();
+  if (!S.actions[co.id]) {
+    const D = data(co); const list = [];
+    const mk = (s, f, st, due) => { if (s && f) list.push(Object.assign(actionFor(s, f), { status: st, due })); };
+    mk(D.shops[7], D.shops[7].f.find(f => f.id === "f1"), "open", 24);
+    mk(D.shops[4], D.shops[4].f.find(f => f.type === "price"), "open", 26);
+    mk(D.shops[3], D.shops[3].f.find(f => f.id === "f1"), "done", 24);
+    S.actions[co.id] = list;
+  }
+  return S.actions[co.id];
+}
+function actionFor(s, f) {
+  const co = curCo(); const own = co.brands[0];
+  const v = f ? { b: f.brand || own, n: AGREED - (f.a || 0) } : {};
+  return { id: s.id + ":" + (f ? f.id : "refilm"), shop: s.id, k: f ? "act_" + f.type : "act_refilm", v, rep: s.rep, due: TODAY + 2, status: "open" };
+}
+function actText(a) { return t(a.k, { b: a.v.b, n: d(a.v.n) }); }
+function actStatus(a) { return a.status === "done" ? "done" : a.due < TODAY ? "overdue" : "open"; }
+
+/* rule-based alerts (no LLM): each one points to the screen that explains it */
+function insights() {
+  const co = curCo(); const D = data(co); const K = kpis(); const out = [];
+  if (co.daily) {
+    const held = D.shops.filter(s => { const r = finalRec(s); return r === "hold" || r === "reaudit"; });
+    if (held.length) out.push({ sev: "bad", text: t("in_money", { a: d((held.length * co.fee).toLocaleString("en-US")), n: d(held.length) }), act: "nav", v: "shops" });
+  }
+  const reps = REPS.map((r, i) => Object.assign({ i }, repStats(i))).sort((a, b) => a.trust - b.trust);
+  if (reps[0].trust < 80) out.push({ sev: "bad", text: t("in_trust", { r: L(REPS[reps[0].i]), n: d(reps[0].trust), f: d(reps[0].fails) }), act: "nav", v: "merchs" });
+  const fast = REPS.map((r, i) => ({ i, m: r.mins })).sort((a, b) => a.m - b.m)[0];
+  if (fast.m <= 3) out.push({ sev: "warn", text: t("in_short", { r: L(REPS[fast.i]), n: d(fast.m) }), act: "nav", v: "merchs" });
+  if (K.review) out.push({ sev: "warn", text: t("in_review", { n: d(K.review) }), act: "nav", v: "review" });
+  const scored = D.shops.map(s => ({ s, p: scoreParts(s) })).filter(x => x.p).sort((a, b) => a.p.total - b.p.total);
+  if (scored.length && scored[0].p.total < 70) out.push({ sev: "warn", text: t("in_low", { s: L(scored[0].s), n: d(scored[0].p.total) }), act: "shop", v: scored[0].s.id });
+  const overdue = actions().filter(a => actStatus(a) === "overdue").length;
+  if (overdue) out.push({ sev: "bad", text: t("in_overdue", { n: d(overdue) }), act: "nav", v: "actions" });
+  return out;
+}
+
 function logIt(k, v) { S.log.unshift({ at: new Date(), k, v }); }
 logIt("logStart");
 
@@ -751,6 +919,9 @@ const IC = {
   tag: '<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.3"/>',
   gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
   pulse: '<path d="M3 12h4l3-7 4 14 3-7h4"/>',
+  check: '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 12.5l3 3 5-6"/>',
+  spark: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/>',
+  pin: '<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
   fridge: '<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M5 9h14M8 5v2M8 12v3"/>',
   shield: '<path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>'
 };
@@ -759,7 +930,7 @@ const LOGO = '<svg viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient 
 
 const NAV = {
   merch: [["today", "home"], ["newVisit", "cam"], ["myVisits", "list"], ["profile", "star"]],
-  auditor: [["overview", "grid"], ["review", "flag"], ["shops", "shop"], ["merchs", "users"]],
+  auditor: [["overview", "grid"], ["review", "flag"], ["actions", "check"], ["shops", "shop"], ["merchs", "users"]],
   admin: [["companies", "building"], ["users", "users"], ["contracts", "fridge"], ["brands", "tag"], ["settings", "gear"], ["system", "pulse"]]
 };
 const ME = { merch: 0, auditor: "Nadia Rahman", admin: "ShelfSense Admin" };
@@ -987,12 +1158,62 @@ VIEWS.overview = function () {
       kpi(t("oos"), P(K.oos), "%", t("oos_d")) + kpi(t("sos"), P(K.sos), "%", t("sos_d"))) +
     kpi(t("needsReview"), K.review, "", t("needsReview_d"), '<button data-act="nav" data-v="review">' + t("openQueue") + " →</button>", K.review ? "alert" : "") +
     "</div>" +
+    assistantPanel() +
+    '<div class="grid2"><section class="panel"><header><h2>' + t("mapTitle") + '</h2><span class="small muted">' + t("mapD") + "</span></header>" + mapSVG(D.shops) + mapLegend() + "</section>" +
+    leaderPanel(D.shops) + "</div>" +
     '<div class="grid2"><section class="panel"><header><h2>' + t(sh ? "trendFront" : "trend") + '</h2></header>' + lineChart(trend) + "</section>" +
     '<section class="panel"><header><h2>' + t("sosByBrand") + '</h2><span class="small muted"><span class="chip acc">' + t("yours") + '</span> <span class="chip">' + t("rival") + "</span></span></header><div class=\"bars\">" + bars + "</div></section></div>" +
     (co.daily ? payPanel(co, D) : "") +
     shopTable(D.shops.slice(0, 8)) +
     '<section class="panel"><header><h2>' + t("savings") + '</h2><span class="num" style="font-family:var(--font-display);font-size:1.8rem;font-weight:700;color:var(--accent);text-shadow:0 0 20px var(--glow)" data-count="' + D.avoided + '">' + d(D.avoided) + '</span></header><p class="muted small" style="margin:0">' + t("savingsD") + "</p></section>";
 };
+function assistantPanel() {
+  const list = insights();
+  if (!list.length) return "";
+  return '<section class="panel assistant"><header><h2><span class="spark">' + icon("spark") + "</span>" + t("assistant") + '</h2><span class="small muted">' + t("assistantD") + "</span></header>" +
+    '<div class="alerts">' + list.map(x => '<div class="alrt ' + x.sev + '"><span class="dot"></span><span class="tx">' + esc(x.text) + '</span><button class="btn" data-act="' + x.act + '" data-v="' + x.v + '">' + t("open") + " →</button></div>").join("") + "</div></section>";
+}
+/* schematic territory map: shops grouped by area, pins coloured by the latest recommendation */
+function mapSVG(shops) {
+  const W = 600, H = 300;
+  const areas = []; shops.forEach(s => { if (!areas.includes(s.aen)) areas.push(s.aen); });
+  const many = areas.length > 3;
+  const centre = i => many ? [80 + (i % 4) * 147, i < 4 ? 95 : 215] : [areas.length === 1 ? W / 2 : 150 + i * (W - 300) / (areas.length - 1), 150];
+  let s = '<svg class="map" viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="' + esc(t("mapTitle")) + '">';
+  s += '<defs><pattern id="streets" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M30 0H0V30" fill="none" class="map-street"/></pattern></defs>';
+  s += '<rect x="0" y="0" width="' + W + '" height="' + H + '" rx="12" class="map-bg"/><rect x="0" y="0" width="' + W + '" height="' + H + '" rx="12" fill="url(#streets)"/>';
+  s += '<path d="M0 150 C 150 130, 260 175, 400 150 S 560 120, 600 140" class="map-road"/><path d="M300 0 C 290 90, 320 200, 305 300" class="map-road"/>';
+  s += '<path d="M0 260 Q 120 240 230 285 T 420 300" class="map-water"/>';
+  const placed = {};
+  areas.forEach((a, i) => {
+    const [cx, cy] = centre(i);
+    if (!many) s += '<circle cx="' + cx + '" cy="' + cy + '" r="78" class="map-zone"/>';
+    const lab = shops.find(x => x.aen === a);
+    s += '<text x="' + cx + '" y="' + (cy - (many ? 38 : 88)) + '" text-anchor="middle" class="map-area">' + esc(L(lab, "a")) + "</text>";
+  });
+  shops.forEach(sh => {
+    const ai = areas.indexOf(sh.aen); const k = placed[ai] = (placed[ai] || 0) + 1;
+    const [cx, cy] = centre(ai);
+    const off = [[0, 0], [-42, 22], [42, 18], [-26, -30], [30, -28], [0, 44]][(k - 1) % 6];
+    const x = cx + (many ? 0 : off[0]), y = cy + (many ? 0 : off[1]);
+    const rec = finalRec(sh);
+    s += '<g class="pin ' + rec + '" data-act="shop" data-v="' + sh.id + '" tabindex="0" role="button" aria-label="' + esc(L(sh)) + '"><title>' + esc(L(sh) + " · " + t(rec)) + "</title>" +
+      (rec === "hold" || rec === "reaudit" ? '<circle cx="' + x + '" cy="' + (y - 14) + '" r="10" class="pin-halo"/>' : "") +
+      '<path d="M' + x + " " + y + "c-3-6-11-11-11-18a11 11 0 0 1 22 0c0 7-8 12-11 18z" + '" class="pin-body"/><circle cx="' + x + '" cy="' + (y - 18) + '" r="4" class="pin-dot"/>' +
+      '<text x="' + x + '" y="' + (y + 13) + '" text-anchor="middle" class="pin-lbl">' + esc(L(sh).split(",")[0].split(" ").slice(0, 2).join(" ")) + "</text></g>";
+  });
+  return s + "</svg>";
+}
+function mapLegend() {
+  return '<div class="legend">' + ["pay", "pending", "hold", "reaudit"].map(r => '<span><i class="lg ' + r + '"></i>' + t(r) + "</span>").join("") + "</div>";
+}
+function leaderPanel(shops) {
+  const rows = shops.map(s => ({ s, p: scoreParts(s) })).sort((a, b) => (b.p ? b.p.total : -1) - (a.p ? a.p.total : -1));
+  return '<section class="panel"><header><h2>' + t("leader") + '</h2><span class="small muted">' + t("scoreD") + '</span></header><div class="leader">' +
+    rows.map((x, i) => '<div class="lrow" data-act="shop" data-v="' + x.s.id + '"><span class="rank mono">' + d(i + 1) + '</span><span class="nm">' + esc(L(x.s)) + '</span>' +
+      (x.p ? '<div class="bar"><i style="width:' + x.p.total + '%;background:var(--' + scoreCls(x.p.total) + ')"></i></div><span class="chip ' + scoreCls(x.p.total) + ' num">' + d(x.p.total) + "</span>" : '<div class="bar"></div><span class="chip warn">' + t("reaudit") + "</span>") + "</div>").join("") +
+    "</div></section>";
+}
 /* money view for clients that pay shops a daily fee: what the audit protects */
 function payPanel(co, D) {
   const n = D.shops.length, total = n * co.fee;
@@ -1007,9 +1228,9 @@ function payPanel(co, D) {
 function shopTable(shops, title) {
   const rows = shops.map(s => {
     const r = finalRec(s); const fail = integrityFail(s);
-    return '<tr class="click" data-act="shop" data-v="' + s.id + '"><td><strong>' + esc(L(s)) + '</strong><div class="small muted">' + esc(L(s, "a")) + '</div></td><td class="mono small">' + s.fridge + '</td><td class="small">' + esc(L(REPS[s.rep])) + '</td><td class="small num">' + when(s.day, s.hm) + '</td><td class="r num">' + (fail ? "—" : isShelf() ? d(facingsOf(s)) + "/" + d(AGREED) : pct(purityOf(s))) + "</td><td>" + integChip(s) + "</td><td>" + recChip(r) + "</td></tr>";
+    return '<tr class="click" data-act="shop" data-v="' + s.id + '"><td><strong>' + esc(L(s)) + '</strong><div class="small muted">' + esc(L(s, "a")) + '</div></td><td class="mono small">' + s.fridge + '</td><td class="small">' + esc(L(REPS[s.rep])) + '</td><td class="small num">' + when(s.day, s.hm) + '</td><td class="r num">' + (fail ? "—" : isShelf() ? d(facingsOf(s)) + "/" + d(AGREED) : pct(purityOf(s))) + '</td><td class="r">' + (fail ? "—" : '<span class="chip ' + scoreCls(scoreParts(s).total) + ' num">' + d(scoreParts(s).total) + "</span>") + "</td><td>" + integChip(s) + "</td><td>" + recChip(r) + "</td></tr>";
   }).join("");
-  return '<section class="panel"><header><h2>' + (title || t("shops")) + '</h2></header><div class="tablewrap"><table><thead><tr><th>' + t("shop") + "</th><th>" + t("fridge") + "</th><th>" + t("rep") + "</th><th>" + t("lastAudit") + '</th><th class="r">' + t(isShelf() ? "facingsCol" : "purityCol") + "</th><th>" + t("integrity") + "</th><th>" + t("action") + "</th></tr></thead><tbody>" + rows + "</tbody></table></div></section>";
+  return '<section class="panel"><header><h2>' + (title || t("shops")) + '</h2></header><div class="tablewrap"><table><thead><tr><th>' + t("shop") + "</th><th>" + t("fridge") + "</th><th>" + t("rep") + "</th><th>" + t("lastAudit") + '</th><th class="r">' + t(isShelf() ? "facingsCol" : "purityCol") + '</th><th class="r">' + t("scoreCol") + "</th><th>" + t("integrity") + "</th><th>" + t("action") + "</th></tr></thead><tbody>" + rows + "</tbody></table></div></section>";
 }
 VIEWS.shops = function () {
   if (S.shop) return auditView();
@@ -1025,12 +1246,26 @@ VIEWS.review = function () {
   ).join("") : '<div class="empty">' + t("reviewEmpty") + "</div>";
   return '<div class="pagehead"><div><h1>' + t("review") + "</h1><p>" + t("reviewP", { th: d(S.threshold.toFixed(2)) }) + '</p></div></div><section class="panel">' + list + "</section>";
 };
+VIEWS.actions = function () {
+  const list = actions(); const D = data(curCo());
+  const n = { open: 0, overdue: 0, done: 0 }; list.forEach(a => n[actStatus(a)]++);
+  const cls = { open: "warn", overdue: "bad", done: "ok" };
+  const rows = list.map((a, i) => {
+    const s = D.shops.find(x => x.id === a.shop); const st = actStatus(a);
+    return '<tr><td><strong>' + esc(actText(a)) + '</strong><div class="small muted">' + esc(L(s)) + " · " + esc(L(s, "a")) + '</div></td><td class="small">' + esc(L(REPS[a.rep])) + '</td><td class="small num">' + when(a.due, "").replace(/, $/, "") + '</td><td><span class="chip ' + cls[st] + '">' + t("st_" + st) + "</span></td>" +
+      '<td class="r"><button class="btn" data-act="actdone" data-v="' + i + '">' + t(st === "done" ? "reopen" : "markDone") + "</button></td></tr>";
+  }).join("");
+  const tile = (k, v, c) => '<div class="kpi ' + c + '"><span class="eyebrow">' + t("st_" + k) + '</span><span class="v" data-count="' + v + '">' + d(v) + "</span></div>";
+  return '<div class="pagehead"><div><h1>' + t("actions") + "</h1><p>" + t("actionsP") + "</p></div></div>" +
+    '<div class="kpis" style="grid-template-columns:repeat(3,minmax(0,1fr))">' + tile("open", n.open, "") + tile("overdue", n.overdue, n.overdue ? "alert" : "") + tile("done", n.done, "") + "</div>" +
+    '<section class="panel">' + (list.length ? '<div class="tablewrap"><table><thead><tr><th>' + t("actions") + "</th><th>" + t("assigned") + "</th><th>" + t("due") + "</th><th>" + t("status") + '</th><th></th></tr></thead><tbody>' + rows + "</tbody></table></div>" : '<div class="empty">' + t("noActions") + "</div>") + "</section>";
+};
 VIEWS.merchs = function () {
   const rows = REPS.map((r, i) => {
     const st = repStats(i); const cls = st.trust >= 85 ? "ok" : st.trust >= 70 ? "warn" : "bad";
-    return "<tr><td><strong>" + esc(L(r)) + '</strong></td><td class="r num">' + d(st.visits) + '</td><td class="r num">' + d(st.fails) + '</td><td class="r num">' + d(st.over) + '</td><td style="min-width:140px"><div style="display:flex;gap:8px;align-items:center"><div class="bar" style="flex:1"><i style="width:' + st.trust + '%;background:var(--' + cls + ')"></i></div><span class="chip ' + cls + ' num">' + d(st.trust) + "%</span></div></td></tr>";
+    return "<tr><td><strong>" + esc(L(r)) + '</strong></td><td class="r num">' + d(st.visits) + '</td><td class="r num"><span class="chip ' + (st.beat >= 85 ? "ok" : st.beat >= 75 ? "warn" : "bad") + '">' + d(st.beat) + '%</span></td><td class="r num">' + (st.mins <= 3 ? '<span class="chip bad">' + t("minutes", { n: d(st.mins) }) + "</span>" : t("minutes", { n: d(st.mins) })) + '</td><td class="r num">' + d(st.fails) + '</td><td class="r num">' + d(st.over) + '</td><td style="min-width:140px"><div style="display:flex;gap:8px;align-items:center"><div class="bar" style="flex:1"><i style="width:' + st.trust + '%;background:var(--' + cls + ')"></i></div><span class="chip ' + cls + ' num">' + d(st.trust) + "%</span></div></td></tr>";
   }).join("");
-  return '<div class="pagehead"><div><h1>' + t("merchs") + "</h1><p>" + t("merchsP") + '</p></div></div><section class="panel"><div class="tablewrap"><table><thead><tr><th>' + t("name") + '</th><th class="r">' + t("visits") + '</th><th class="r">' + t("intFails") + '</th><th class="r">' + t("overturned") + "</th><th>" + t("trust") + "</th></tr></thead><tbody>" + rows + "</tbody></table></div></section>";
+  return '<div class="pagehead"><div><h1>' + t("merchs") + "</h1><p>" + t("merchsP") + '</p></div></div><section class="panel"><div class="tablewrap"><table><thead><tr><th>' + t("name") + '</th><th class="r">' + t("visits") + '</th><th class="r">' + t("beat") + '</th><th class="r">' + t("timeShop") + '</th><th class="r">' + t("intFails") + '</th><th class="r">' + t("overturned") + "</th><th>" + t("trust") + "</th></tr></thead><tbody>" + rows + "</tbody></table></div></section>";
 };
 
 function auditView() {
@@ -1046,10 +1281,12 @@ function auditView() {
     const st = fStatus(s, f);
     const cls = f.type === "price" ? (st === "review" ? "warn" : "") : st === "overturned" ? "" : st === "review" ? "warn" : "bad";
     const decided = S.decisions[s.id + ":" + f.id];
+    const hasAct = actions().some(a => a.id === s.id + ":" + f.id);
+    const actBtn = counts(st) ? (hasAct ? '<span class="chip acc">✓ ' + t("actionMade") + "</span>" : '<button class="btn" data-act="mkact" data-v="' + s.id + '" data-f="' + f.id + '">+ ' + t("createAction") + "</button>") : "";
     fl += '<div class="finding ' + cls + (S.sel === f.id ? " selected" : "") + '"><div class="stripe"></div><div><div class="t" data-act="self" data-f="' + f.id + '">' + esc(fTitle(f)) + "</div>" +
       '<div class="meta">' + (f.shelf !== null ? "<span>" + shelfLabel(f.shelf) + '</span><span class="mono">' + d(fTime(f)) + "</span>" : "") + '<span class="mono">' + t("conf") + " " + d(f.conf.toFixed(2)) + "</span>" + stChip(st, f.type) + "</div>" +
       (fail ? "" : '<div class="acts">' + (decided ? '<button class="btn" data-act="dec" data-v="' + s.id + '" data-f="' + f.id + '" data-d="">' + t("undo") + "</button>" :
-        '<button class="btn danger" data-act="dec" data-v="' + s.id + '" data-f="' + f.id + '" data-d="confirmed">' + t("confirm") + '</button><button class="btn" data-act="dec" data-v="' + s.id + '" data-f="' + f.id + '" data-d="overturned">' + t("overturn") + "</button>") + "</div>") +
+        '<button class="btn danger" data-act="dec" data-v="' + s.id + '" data-f="' + f.id + '" data-d="confirmed">' + t("confirm") + '</button><button class="btn" data-act="dec" data-v="' + s.id + '" data-f="' + f.id + '" data-d="overturned">' + t("overturn") + "</button>") + actBtn + "</div>") +
       "</div></div>";
   });
   if (co.kind === "shelf") {
@@ -1061,12 +1298,18 @@ function auditView() {
     ck(s.integ.reused === null, s.integ.reused === null ? t("i_new") : t("i_reused", { d: when(s.integ.reused, "").replace(/, $/, "") })) +
     ck(s.integ.sticker, t("i_sticker", { id: s.fridge })) +
     ck(s.integ.coverage === 4, t("i_cov", { a: d(s.integ.coverage), b: d(4) })) +
-    ck(true, t("i_date")) + ck(false, t("i_gps"), "", true);
+    ck(true, t("i_date")) +
+    (s.integ.gps > 200 ? ck(false, t("i_gpsFar", { m: d((s.integ.gps / 1000).toFixed(1)) })) : ck(true, t("i_gps", { m: d(s.integ.gps) }), t("checkedAt", { t: d(s.checkin) })));
+  const sp = scoreParts(s);
+  const scorePanel = sp ? '<section class="panel scorebox"><div class="ringwrap">' + scoreRing(sp.total, 42) + '<span class="ringnum num" data-count="' + sp.total + '">' + d(sp.total) + '</span></div><div class="sparts"><h2>' + t("score") + "</h2>" +
+    [["sc_place", sp.place, 40], ["sc_avail", sp.avail, 25], ["sc_price", sp.price, 10], ["sc_evid", sp.evid, 25]].map(([k, v, m]) => '<div class="row"><span>' + t(k) + '</span><div class="bar"><i style="width:' + (100 * v / m) + '%"></i></div><span class="num small">' + d(v) + "/" + d(m) + "</span></div>").join("") + "</div></section>" : "";
+  const refilm = fail ? (actions().some(a => a.id === s.id + ":refilm") ? '<span class="chip acc">✓ ' + t("actionMade") + "</span>" : '<button class="btn" data-act="mkact" data-v="' + s.id + '" data-f="">+ ' + t("act_refilm") + "</button>") : "";
   const sug = suggest(s); const fin = finalRec(s);
   const decide = ["pay", "hold", "reaudit"].map(r => '<button class="btn" data-act="final" data-v="' + s.id + '" data-d="' + r + '" aria-pressed="' + (S.finals[s.id] === r) + '">' + t(r) + "</button>").join("");
   return '<div><button class="btn ghost" data-act="backshop">← ' + t("back") + '</button></div>' +
     '<div class="pagehead"><div><h1>' + esc(L(s)) + '</h1><p>' + esc(L(s, "a")) + ' · <span class="mono">' + s.fridge + "</span> · " + when(s.day, s.hm) + " · " + esc(L(REPS[s.rep])) + '</p></div><button class="btn" data-act="json" data-v="' + s.id + '">' + t("exportJson") + "</button></div>" +
-    (fail ? '<div class="result bad"><span class="big">' + t("integrityFail") + "</span><span>" + t("integrityFailD") + "</span></div>" : "") +
+    (fail ? '<div class="result bad"><span class="big">' + t("integrityFail") + "</span><span>" + t("integrityFailD") + '</span><div style="margin-top:6px">' + refilm + "</div></div>" : "") +
+    scorePanel +
     '<div class="grid-ev"><section class="panel"><header><h2>' + t("evidence") + '</h2><span class="small muted mono">' + d(frames.length) + " " + t("frames") + "</span></header>" + fridgeSVG(s, { frame: S.frame, sel: S.sel }) + strip + "</section>" +
     '<section class="panel"><header><h2>' + t("findings") + "</h2></header>" + fl + "</section></div>" +
     '<section class="panel"><header><h2>' + t("integrity") + "</h2></header><div class=\"checks\">" + checks + "</div></section>" +
@@ -1082,17 +1325,29 @@ VIEWS.today = function () {
   const st = repStats(ME.merch);
   const stops = route.map((s, i) => {
     const isDone = doneIds.includes(s.id);
-    return '<div class="stop' + (isDone ? " done" : "") + '"><span class="n">' + (isDone ? "✓" : d(i + 1)) + '</span><div style="min-width:0"><strong>' + esc(L(s)) + '</strong><div class="small muted">' + esc(L(s, "a")) + ' · <span class="mono">' + s.fridge + "</span></div></div>" +
+    return '<div class="stop' + (isDone ? " done" : "") + '"><span class="n">' + (isDone ? "✓" : d(i + 1)) + '</span><div style="min-width:0"><strong>' + esc(L(s)) + '</strong><div class="small muted">' + esc(L(s, "a")) + ' · <span class="mono">' + s.fridge + "</span>" +
+      (isDone && s.rep === ME.merch ? ' · <span class="gps">' + icon("pin") + t("checkedIn", { t: d(s.checkin), m: d(s.integ.gps) }) + "</span>" : "") + "</div></div>" +
       (isDone ? '<span class="chip ok">' + t("done") + "</span>" : '<button class="btn primary" data-act="startv" data-v="' + s.id + '">' + t("startVisit") + "</button>") + "</div>";
   }).join("");
-  return '<div class="pagehead"><div><h1>' + t("hello", { n: esc(L(REPS[ME.merch]).split(" ")[0]) }) + "</h1><p>" + t("visitsDone", { a: d(done), b: d(route.length) }) + "</p></div></div>" +
-    '<div class="kpis" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div class="kpi"><span class="eyebrow">' + t("done") + '</span><span class="v" data-count="' + done + '">' + d(done) + '</span></div><div class="kpi"><span class="eyebrow">' + t("pendingV") + '</span><span class="v" data-count="' + (route.length - done) + '">' + d(route.length - done) + '</span></div><div class="kpi"><span class="eyebrow">' + t("trust") + '</span><span class="v" data-count="' + st.trust + '" data-suf="%">' + d(st.trust) + "%</span></div></div>" +
+  const D = data(curCo());
+  const mine = actions().map((a, i) => ({ a, i })).filter(x => x.a.rep === ME.merch && x.a.status !== "done");
+  const missions = '<section class="panel"><header><h2>' + t("missions") + '</h2><span class="small muted">' + t("missionHint") + "</span></header>" +
+    (mine.length ? mine.map(({ a, i }) => { const s = D.shops.find(x => x.id === a.shop); const st = actStatus(a);
+      return '<div class="finding ' + (st === "overdue" ? "bad" : "warn") + '"><div class="stripe"></div><div><div class="t" style="cursor:default">' + esc(actText(a)) + '</div><div class="meta"><span>' + esc(L(s)) + '</span><span>' + t("due") + " " + when(a.due, "").replace(/, $/, "") + "</span>" + (st === "overdue" ? '<span class="chip bad">' + t("st_overdue") + "</span>" : "") + '</div><div class="acts"><button class="btn primary" data-act="startv" data-v="' + s.id + '">' + t("startVisit") + '</button><button class="btn" data-act="actdone" data-v="' + i + '">' + t("markDone") + "</button></div></div></div>"; }).join("")
+      : '<div class="empty">' + t("missionsEmpty") + "</div>") + "</section>";
+  return '<div class="pagehead"><div><h1>' + t("hello", { n: esc(L(REPS[ME.merch]).split(" ")[0]) }) + "</h1><p>" + t("visitsDone", { a: d(done), b: d(route.length) }) + "</p></div>" +
+    (S.queued ? '<span class="chip warn">' + t("queued", { n: d(S.queued) }) + "</span>" : "") + "</div>" +
+    '<div class="kpis" style="grid-template-columns:repeat(4,minmax(0,1fr))"><div class="kpi"><span class="eyebrow">' + t("done") + '</span><span class="v" data-count="' + done + '">' + d(done) + '</span></div><div class="kpi"><span class="eyebrow">' + t("pendingV") + '</span><span class="v" data-count="' + (route.length - done) + '">' + d(route.length - done) + '</span></div><div class="kpi"><span class="eyebrow">' + t("beat") + '</span><span class="v" data-count="' + st.beat + '" data-suf="%">' + d(st.beat) + '%</span></div><div class="kpi"><span class="eyebrow">' + t("trust") + '</span><span class="v" data-count="' + st.trust + '" data-suf="%">' + d(st.trust) + "%</span></div></div>" +
+    missions +
     '<section class="panel"><header><h2>' + t("route") + '</h2></header><div class="route">' + stops + "</div></section>";
 };
 VIEWS.newVisit = function () {
   const v = S.visit || (S.visit = { shop: myShops()[0].id, file: null, ck: [false, false, false], stage: -1 });
   const shops = myShops();
   const sh = shops.find(s => s.id === v.shop) || shops[0];
+  if (v.stage === -2) {
+    return '<div class="pagehead"><div><h1>' + t("newVisit") + "</h1><p>" + esc(L(sh)) + '</p></div></div><section class="panel"><div class="result warn-r"><span class="big">' + t("savedOffline") + "</span><span>" + t("savedOfflineD") + '</span><span class="small mono">' + esc(v.file || "") + '</span></div><div style="margin-top:12px"><button class="btn primary" data-act="upnow">' + t("uploadNow") + "</button></div></section>";
+  }
   if (v.stage >= 0) {
     const steps = ["p1", "p2", "p3", "p4", "p5"];
     let body = '<div class="prog"><i style="width:' + Math.min(100, Math.round((v.stage + 0.5) / steps.length * 100)) + '%"></i></div>' +
@@ -1110,12 +1365,16 @@ VIEWS.newVisit = function () {
     }
     return '<div class="pagehead"><div><h1>' + t("newVisit") + "</h1><p>" + esc(L(sh)) + ' · <span class="mono">' + sh.fridge + '</span></p></div></div><section class="panel">' + body + "</section>";
   }
-  const ready = v.file && v.ck.every(Boolean);
+  const ready = v.file && v.ck.every(Boolean) && v.gps;
+  const gpsBlock = '<div><h3>' + t("checkin") + "</h3>" + (v.gps ? '<div class="gps ok">' + icon("pin") + t("checkinDone", { lat: d("23.8" + v.gps.lat), lon: d("90.36" + v.gps.lon), m: d(v.gps.m) }) + "</div>" :
+    '<button class="btn" data-act="checkin">' + icon("pin").replace("<svg", '<svg style="width:16px;height:16px"') + t("checkinBtn") + "</button>") + '<div class="small muted" style="margin-top:4px">' + t("checkinNote") + "</div></div>";
+  const offBlock = '<label class="ck"><input type="checkbox" id="voff" data-act="voff"' + (v.offline ? " checked" : "") + ">" + t("offline") + "</label>";
   return '<div class="pagehead"><div><h1>' + t("newVisit") + '</h1><p class="small">' + t("tipBlur") + "</p></div></div>" +
     '<section class="panel" style="display:flex;flex-direction:column;gap:14px"><div class="form"><div class="field"><label for="vShop">' + t("selectShop") + '</label><select id="vShop" class="inp" data-act="vshop">' +
     shops.map(s => '<option value="' + s.id + '"' + (s.id === v.shop ? " selected" : "") + ">" + esc(L(s)) + " · " + s.fridge + "</option>").join("") + '</select></div><div class="field"><label>' + t("fridge") + '</label><span class="chip plain mono" style="align-self:flex-start;padding:6px 10px">' + sh.fridge + "</span></div></div>" +
     '<div class="drop' + (v.file ? " has" : "") + '">' + icon("cam").replace("<svg", '<svg style="width:32px;height:32px;color:var(--accent)"') + "<strong>" + (v.file ? esc(v.file) : t("uploadVideo")) + '</strong><span class="small muted">' + t("uploadHint") + '</span><div class="row"><label class="btn primary" for="vFile">' + t("chooseFile") + '</label><input id="vFile" type="file" accept="video/*" capture="environment" hidden data-act="vfile"><button class="btn" data-act="vsample">' + t("useSample") + "</button></div></div>" +
-    "<div><h3>" + t("checklist") + "</h3>" + [0, 1, 2].map(i => '<label class="ck"><input type="checkbox" id="ck' + i + '" data-act="vck" data-v="' + i + '"' + (v.ck[i] ? " checked" : "") + ">" + t("ck" + (i + 1)) + "</label>").join("") + "</div>" +
+    gpsBlock +
+    "<div><h3>" + t("checklist") + "</h3>" + [0, 1, 2].map(i => '<label class="ck"><input type="checkbox" id="ck' + i + '" data-act="vck" data-v="' + i + '"' + (v.ck[i] ? " checked" : "") + ">" + t("ck" + (i + 1)) + "</label>").join("") + offBlock + "</div>" +
     '<div><button class="btn primary" data-act="vsubmit"' + (ready ? "" : " disabled") + ">" + t("submit") + "</button></div></section>";
 };
 VIEWS.myVisits = function () {
@@ -1185,7 +1444,8 @@ function reportJSON(s) {
     report_version: "demo-0.1", company: co.name.en, shop: s.en, area: s.aen, fridge_id: s.fridge, merchandiser: REPS[s.rep].en,
     visit: "2026-10-" + s.day + "T" + s.hm + ":00+06:00",
     video: { sha256: s.sha, keyframes: FRAMES.slice(0, s.integ.coverage).map(f => ({ t: f.t, shelf: f.shelf + 1 })) },
-    integrity: { reused_footage: s.integ.reused !== null, shelves_filmed: s.integ.coverage + "/4", asset_sticker_match: s.integ.sticker, gps: "planned" },
+    integrity: { reused_footage: s.integ.reused !== null, shelves_filmed: s.integ.coverage + "/4", asset_sticker_match: s.integ.sticker, gps_distance_m: s.integ.gps, checkin: s.checkin },
+    perfect_store_score: scoreParts(s),
     kpis: co.kind === "shelf"
       ? { audit_type: "open_shelf_front_placement", agreed_facings: AGREED, visible_facings: facingsOf(s), front_placement_ok: !hasViolation(s, "placement") && !hasViolation(s, "facings") }
       : { audit_type: "branded_fridge", cooler_purity: +purityOf(s).toFixed(2), paid_placement_ok: !hasViolation(s, "placement") },
@@ -1198,6 +1458,8 @@ function openModal(title, body) {
 }
 
 /* ---------- events ---------- */
+/* activity log entries are stored in English */
+function inEn(fn) { const l = S.lang; S.lang = "en"; try { return fn(); } finally { S.lang = l; } }
 function go(view) { S.view = view; S.shop = null; S.sel = null; render(); const a = document.getElementById("app"); if (a) a.scrollTop = 0; }
 let timer = null;
 function runVisit() {
@@ -1247,7 +1509,7 @@ document.addEventListener("click", e => {
   }
   if (a === "dec") {
     const key = v + ":" + el.dataset.f; const s = data(curCo()).shops.find(x => x.id === v); const f = s.f.find(x => x.id === el.dataset.f);
-    if (el.dataset.d) { S.decisions[key] = el.dataset.d; logIt(el.dataset.d === "confirmed" ? "logConfirm" : "logOver", { u: ME.auditor, f: TX.en["f_" + f.type].replace("{b}", f.brand || "").replace("{n}", f.n || ""), s: s.en }); }
+    if (el.dataset.d) { S.decisions[key] = el.dataset.d; logIt(el.dataset.d === "confirmed" ? "logConfirm" : "logOver", { u: ME.auditor, f: inEn(() => fTitle(f)), s: s.en }); }
     else delete S.decisions[key];
     render(); return;
   }
@@ -1255,7 +1517,19 @@ document.addEventListener("click", e => {
   if (a === "json") { const s = data(curCo()).shops.find(x => x.id === v); openModal(t("exportJson") + " · " + s.en, reportJSON(s)); return; }
   if (a === "startv") { S.visit = { shop: v, file: null, ck: [false, false, false], stage: -1 }; go("newVisit"); return; }
   if (a === "vsample") { S.visit.file = "fridge_01.mp4 · 6.4 s · 576×1024"; render(); return; }
-  if (a === "vsubmit") { runVisit(); return; }
+  if (a === "vsubmit") { if (S.visit.offline) { S.visit.stage = -2; S.queued++; render(); } else runVisit(); return; }
+  if (a === "upnow") { S.queued = Math.max(0, S.queued - 1); S.visit.offline = false; runVisit(); return; }
+  if (a === "checkin") { const r = Math.random; S.visit.gps = { lat: String(Math.floor(r() * 9000) + 1000), lon: String(Math.floor(r() * 900) + 100), m: 6 + Math.floor(r() * 20) }; render(); return; }
+  if (a === "mkact") {
+    const s = data(curCo()).shops.find(x => x.id === v); const f = el.dataset.f ? s.f.find(x => x.id === el.dataset.f) : null;
+    const act = actionFor(s, f); actions().push(act);
+    logIt("logAction", { u: ME.auditor, a: inEn(() => actText(act)), s: s.en }); render(); return;
+  }
+  if (a === "actdone") {
+    const act = actions()[+v]; act.status = act.status === "done" ? "open" : "done";
+    if (act.status === "done") { const s = data(curCo()).shops.find(x => x.id === act.shop); logIt("logActionDone", { a: inEn(() => actText(act)), s: s.en }); }
+    render(); return;
+  }
   if (a === "newv") { S.visit = null; render(); return; }
 });
 document.addEventListener("change", e => {
@@ -1264,6 +1538,7 @@ document.addEventListener("change", e => {
   if (a === "vshop") { S.visit.shop = el.value; render(); return; }
   if (a === "vfile") { const f = el.files && el.files[0]; if (f) { S.visit.file = f.name + " · " + (f.size / 1048576).toFixed(1) + " MB"; render(); } return; }
   if (a === "vck") { S.visit.ck[+el.dataset.v] = el.checked; render(); return; }
+  if (a === "voff") { S.visit.offline = el.checked; render(); return; }
   if (a === "sv") { S.showVerdict = el.checked; render(); return; }
   if (a === "fps") { S.fps = +el.value; return; }
   if (a === "thr") { logIt("logThr", { v: S.threshold.toFixed(2) }); return; }
