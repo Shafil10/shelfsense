@@ -338,6 +338,69 @@ Detector crops & 12 of 12 & 0.94 & \textbf{0.63} \\
 \end{itemize}
 The crop and frame labels were drafted for this test and still need a second check by the team.
 
+\subsubsection{First end-to-end audit report (start of Sprint 5)}\label{sec:r4-audit}
+With the detector in place we connected the parts into one command that turns a video into a JSON
+audit report, running entirely on the CPU:
+\begin{enumerate}
+  \item \textbf{Integrity:} SHA-256 of the file, video metadata, and a \emph{re-use check}: the
+  perceptual hashes of the keyframes are compared with those of every earlier audit of a different
+  video, and the audit is flagged if at least half of its keyframes match one earlier audit. This
+  targets a dishonest representative who re-submits old footage under a new name.
+  \item \textbf{Keyframes} from the Sprint~2 extractor, and a \emph{coverage} warning when more than
+  2\,s of the video is lost to blur in one stretch or a keyframe shows no products.
+  \item \textbf{Products} from the detector (confidence 0.35, Section~\ref{sec:r4-count}), grouped
+  into shelves: boxes are first grouped into horizontal layers, then layers that touch are merged,
+  because stacked packs on one shelf leave no gap while the next shelf starts after the shelf edge
+  and price strip. Without the merge step, stacked toothpaste boxes were counted as up to 18 shelves.
+  \item \textbf{Evidence:} every keyframe is saved with its boxes and shelf numbers, and every number in
+  the report points to such an image and its timestamp.
+\end{enumerate}
+KPIs that need parts not built yet (out-of-stock, share of shelf, paid placement, price tags) are
+reported as \emph{pending} with the reason, never as a guessed value. We ran the pipeline on all 115
+supermarket videos (21.8 minutes of footage, including the 4 byte-identical copies found in
+Section~\ref{sec:r4-data}). Results are in Table~\ref{tab:r4-audit}.
+
+\begin{table}[!t]
+\centering
+\caption{First end-to-end run on 115 videos (CPU, Intel Core i7-8565U).}
+\label{tab:r4-audit}
+\begin{tabular}{lr}
+\hline
+Item & Value \\
+\hline
+Videos / keyframes & 115 / 1{,}315 \\
+Processing time, total / median per video & 390\,s / 3.2\,s \\
+Re-used footage flagged & 4 (all 4 copies; 0 of 111 distinct videos) \\
+Coverage warnings & 6 (hand-held, motion-blurred clips) \\
+Verdicts: ok / review / re-audit & 105 / 6 / 4 \\
+\hline
+\end{tabular}
+\end{table}
+
+The re-use check caught every copy with all keyframes matching, and raised no false alarm even
+though neighbouring videos film the same shelves from a slightly different position. Exact copies
+are the easiest case, so we also altered three videos the way a dishonest representative might
+(Table~\ref{tab:r4-reuse}). Re-encoding and shrinking did not hide the footage, but cropping 5\% off
+each side did: a perceptual hash describes the whole frame, so a crop changes it. Matching local
+image features (for example ORB keypoints), which survive cropping, is planned for Sprint~5.
+
+\begin{table}[!t]
+\centering
+\caption{Re-use check on altered copies of three test videos (WA0002, WA0061, WA0094).}
+\label{tab:r4-reuse}
+\begin{tabular}{lc}
+\hline
+Alteration & Flagged as re-used \\
+\hline
+Exact copy (found in our data) & 4 of 4 \\
+Re-encoded (new compression) & 3 of 3 \\
+Shrunk to half size & 3 of 3 \\
+Cropped by 10\% & 0 of 3 \\
+\hline
+\end{tabular}
+\end{table} The six coverage warnings are the hand-held milk-carton videos with real motion blur
+(Fig.~\ref{fig:r4-blur}).
+
 \subsubsection{Challenges faced}
 \begin{itemize}
   \item \textbf{The new footage shows open shelves, not branded fridges.} It is ideal for product
@@ -358,7 +421,8 @@ The crop and frame labels were drafted for this test and still need a second che
 Sprint~4 is mostly complete: the detector is trained and evaluated on SKU-110K, counts far better
 than the VLM, runs on a laptop CPU, and the crop test supports the hybrid design. The Report~3
 baseline is now reported. The remaining Sprint~4 item is mAP on our own frames, which needs the
-corrected labels.
+corrected labels. Sprint~5 has started ahead of plan: a first audit report with integrity checks runs
+on all our videos in about 3\,s each.
 
 \subsection{Target for next weekly update}
 \begin{enumerate}
@@ -369,8 +433,10 @@ corrected labels.
   \item Verify the crop brand labels and the baseline ground truth.
   \item Record shop fridges (15--30\,s each), including NutriCoco's paid front zone and fridges with
   competitor products, to test paid placement and cooler purity.
-  \item Start Sprint~5: connect extraction, detection and the VLM into one pipeline that writes a
-  JSON audit report with evidence (keyframe, timestamp, box) for every finding.
+  \item Sprint~5: add brand reading on the crops of the paid shelf to the audit pipeline, and the first
+  KPI checks (paid placement for NutriCoco, share of shelf) with evidence for every finding.
+  \item Make the re-use check robust to cropping with local feature matching, and test it on footage
+  of the same shelf filmed on different days.
 \end{enumerate}
 
 \subsection{Individual contribution}
@@ -386,6 +452,7 @@ Supermarket video recording & \TODO{member} & 115 videos \\
 Video inventory, split and extraction & \TODO{member} & 4{,}558 keyframes \\
 SKU-110K detector training and evaluation & \TODO{member} & 2k and 4k images \\
 Counting comparison and CPU timing & \TODO{member} & Detector vs.\ VLM, ONNX \\
+End-to-end audit report and integrity checks & \TODO{member} & 115 videos, re-use test \\
 Pre-labels and annotation frame selection & \TODO{member} & 222 frames \\
 VLM crop test and brand labels & \TODO{member} & Recall 0.30 $\rightarrow$ 0.63 \\
 \hline
