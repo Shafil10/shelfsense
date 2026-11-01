@@ -209,14 +209,20 @@ def plot(methods, truth, out):
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    lo, hi = 0, max([*truth.values()] + [v for m in methods.values() for v in m.values() if v is not None]) * 1.08
+    # Scale to the true counts; answers far above them (the VLM's "1000") sit on the top edge with a label
+    lo, hi = 0, max(truth.values()) * 1.6
     fig, ax = plt.subplots(figsize=(6.4, 4.6), dpi=200)
     xs = [0, hi]
     ax.fill_between(xs, [0.9 * x for x in xs], [1.1 * x for x in xs], color="#e8e7e3", lw=0, label="within 10%")
     ax.plot(xs, xs, color="#8a8984", lw=1, ls="--", label="perfect count")
     for (name, counts), (color, marker) in zip(methods.items(), SERIES_STYLE):
-        pts = [(truth[k], v) for k, v in counts.items() if v is not None]
-        ax.scatter(*zip(*pts), s=36, color=color, marker=marker, edgecolor="white", linewidth=1.2, label=name, zorder=3)
+        pts = [(truth[k], min(v, hi)) for k, v in counts.items() if v is not None]
+        ax.scatter(*zip(*pts), s=36, color=color, marker=marker, edgecolor="white", linewidth=1.2, label=name,
+                   zorder=3, clip_on=False)
+        for k, v in counts.items():
+            if v is not None and v > hi:
+                ax.annotate(f"{v} (off scale)", (truth[k], hi), xytext=(6, -12), textcoords="offset points",
+                            fontsize=7, color="#52514e")
     ax.set(xlim=(lo, hi), ylim=(lo, hi), xlabel="True product count (SKU-110K boxes)", ylabel="Predicted count")
     ax.grid(color="#ecebe7", lw=0.6)
     ax.set_axisbelow(True)
@@ -256,7 +262,12 @@ def score(args, full, truth):
             w.writerow([k, t] + [methods[m].get(k) for m in methods])
     labels = {k: ("Qwen2-VL-2B" if k == "vlm" else "YOLOv8n " + k.replace("sku110k_v8n_4k", "4k").replace(
         "sku110k_v8n", "2k").replace("@conf", ", conf ")) for k in methods}
-    plot({labels[k]: v for k, v in methods.items()}, truth, ROOT / "data" / "results" / "figures" / "count_compare.png")
+    # Plot the VLM and each detector at its val-tuned threshold (at most 4 series, one colour each)
+    tuning = json.loads(TUNING.read_text()) if TUNING.exists() else {}
+    tuned = {f"{run}@conf{t['best_conf']}" for run, t in tuning.items()}
+    shown = [k for k in methods if k == "vlm"] + [k for k in methods if k in tuned]
+    plot({labels[k]: methods[k] for k in shown[:len(SERIES_STYLE)]}, truth,
+         ROOT / "data" / "results" / "figures" / "count_compare.png")
     print(json.dumps(result, indent=2))
     print(f"-> {out}")
 
