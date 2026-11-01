@@ -13,6 +13,7 @@ Usage (project root, venv active; needs src.detection.prepare_sku110k first):
   python -m src.detection.train_sku110k --epochs 1 --name smoke     # quick check that it runs
   python -m src.detection.train_sku110k --eval-only                 # re-validate existing weights
   python -m src.detection.train_sku110k --resume                    # continue an interrupted run
+  python -m src.detection.train_sku110k --yolo-dir datasets/sku110k_yolo_4k --epochs 20       --weights runs/detect/sku110k_v8n/weights/best.pt --name sku110k_v8n_4k   # continue on more data
 """
 import argparse
 import json
@@ -38,10 +39,14 @@ def main():
     ap.add_argument("--name", default="sku110k_v8n")
     ap.add_argument("--eval-only", action="store_true")
     ap.add_argument("--resume", action="store_true", help="continue an interrupted run from last.pt")
+    ap.add_argument("--yolo-dir", help="override sku110k.yolo_dir (e.g. a larger subset)")
+    ap.add_argument("--weights", help="start from these weights instead of detection.model (COCO)")
     args = ap.parse_args()
 
     full = yaml.safe_load(open(args.config, encoding="utf-8"))
     cfg, det = full["sku110k"], full["detection"]
+    if args.yolo_dir:
+        cfg["yolo_dir"] = args.yolo_dir
     data = ROOT / cfg["yolo_dir"] / "data.yaml"
     run_dir = ROOT / "runs" / "detect" / args.name
     device = 0 if torch.cuda.is_available() else "cpu"
@@ -58,7 +63,7 @@ def main():
         torch.save(ckpt, last)
         YOLO(last).train(resume=True)
     elif not args.eval_only:
-        YOLO(det["model"]).train(
+        YOLO(args.weights or det["model"]).train(
             data=str(data), epochs=epochs, imgsz=cfg["img_size"], batch=cfg["batch"],
             max_det=det["max_det"], patience=cfg["patience"], seed=cfg["seed"], device=device,
             workers=cfg["workers"], cache="disk", project=str(run_dir.parent), name=args.name,
@@ -83,9 +88,9 @@ def main():
 
     subset = json.loads((ROOT / cfg["yolo_dir"] / "subset.json").read_text())
     result = {
-        "model": f"{det['model']} (COCO) fine-tuned on SKU-110K subset",
+        "model": f"{args.weights or det['model'] + ' (COCO)'} fine-tuned on SKU-110K subset",
         "weights": str((run_dir / "weights" / "best.pt").relative_to(ROOT)),
-        "settings": {k: cfg[k] for k in ("n_train", "n_val", "max_side", "img_size", "batch", "patience", "seed")}
+        "settings": {k: cfg[k] for k in ("yolo_dir", "n_val", "max_side", "img_size", "batch", "patience", "seed")}
                     | {"epochs": epochs, "max_det": det["max_det"]},
         "subset": {split: {k: v for k, v in s.items() if k != "files"} for split, s in subset.items()},
         "train_minutes": train_minutes,
