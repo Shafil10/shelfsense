@@ -16,8 +16,9 @@ Status of the targets set in Weekly Report 3:
   \item \textbf{Fine-tune YOLOv8n and report mAP --- Done.} mAP@0.5 0.918 and
   mAP@0.5:0.95 0.569 on 500 held-out SKU-110K images. Training ran on a team laptop with a
   GTX~1650 GPU instead of Kaggle: it has no weekly time limit and no upload of the dataset is needed.
-  \item \textbf{Detector vs.\ VLM counting on 20 SKU-110K images --- Done.} See
-  Section~\ref{sec:r4-count}.
+  \item \textbf{Detector vs.\ VLM counting on 20 SKU-110K images --- Done.} Mean absolute error
+  12.1 products for the detector against 88.5 for the VLM, which only answered 10, 100 or 1{,}000
+  (Section~\ref{sec:r4-count}).
   \item \textbf{Empty-gap labels from the synthetic generator --- Changed.} Empty gaps on real
   shelves look very different from the flat gaps of generated images. We instead label
   \emph{empty\_gap} boxes directly on our own video frames; 222 frames are pre-labelled and ready for
@@ -245,7 +246,7 @@ Table~\ref{tab:r4-count} gives the result.
 \hline
 Method & MAE & MAPE & Within 10\% & Undercounted \\
 \hline
-Qwen2-VL-2B (zero-shot) & \TODO{} & \TODO{} & \TODO{} & \TODO{} \\
+Qwen2-VL-2B (zero-shot) & 88.5 & 56.4\% & 10\% & 95\% \\
 YOLOv8n 2k images, conf 0.25 (default) & 18.0 & 12.9\% & 55\% & 15\% \\
 YOLOv8n 2k images, conf 0.35 (tuned on val) & 13.9 & 9.4\% & 70\% & 45\% \\
 YOLOv8n 4k images, conf 0.25 & 14.6 & 10.3\% & 75\% & 20\% \\
@@ -254,7 +255,15 @@ YOLOv8n 4k images, conf 0.30 (tuned on val) & \textbf{12.1} & \textbf{8.4\%} & 7
 \end{tabular}
 \end{table}
 
-\TODO{interpretation after VLM run}
+The VLM does not count. All 20 answers were valid JSON, but every one was a power of ten: 100 for
+15 images, 10 for 4 and 1{,}000 for one (Fig.~\ref{fig:r4-count}). Its two answers within 10\% are
+``100'' for images with 108 and 111 products, i.e.\ luck. This is the same behaviour as the
+``every count is 10'' failure of the fridge baseline (Table~\ref{tab:r4-failures}), now measured
+on exact ground truth. The detector with its validation-tuned threshold is about seven times more
+accurate (MAE 12.1 vs.\ 88.5 products) and takes 0.1\,s per frame on a laptop CPU, against 52\,s
+per image for the VLM on our GPU. More training data (4k vs.\ 2k images) also improved counting,
+from MAE 13.9 to 12.1. This confirms the hybrid design: the detector counts, and the VLM is only
+asked about single products.
 
 \begin{figure}[!t]
 \centering
