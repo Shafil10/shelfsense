@@ -9,7 +9,8 @@ of an image is its number of annotated boxes. Then:
   ask     Qwen2-VL-2B (fp16, zero-shot, same loading as the crop test) answers a counting prompt per image
           -> data/results/count_vlm_answers.jsonl (resumable)
   score   MAE, MAPE, share within 10% of the truth and share undercounted for every method
-          -> data/results/count_compare.json, count_compare.csv (one row per image)
+          -> data/results/count_compare.json, count_compare.csv (one row per image),
+             data/results/figures/count_compare.png (true vs predicted count per image)
 
 The images are copied, shrunk to sku110k.max_side like the training data, to datasets/sku110k_count20/
 (SKU-110K is academic-only: never upload them).
@@ -49,6 +50,18 @@ PROMPT = ("Count every individual product facing (each visible pack, box or bott
           'Answer only with JSON: {"product_count": <number>}')
 
 
+def corrupt(path):
+    """True if libjpeg reports corrupt data while decoding. Some SKU-110K files are damaged: OpenCV
+    still returns an image, with the lost part filled in flat colour, while the ground truth keeps
+    its boxes there. The warning goes to the C-level stderr (not catchable in-process on Windows),
+    so decode in a short subprocess and read its stderr."""
+    import subprocess
+    import sys
+    err = subprocess.run([sys.executable, "-c", "import cv2, sys; cv2.imread(sys.argv[1])", str(path)],
+                         capture_output=True).stderr
+    return b"Corrupt JPEG" in err
+
+
 def pick_images(cfg, n, seed):
     """n random test images with their true counts; copies them (shrunk) on first use."""
     truth_file = IMAGES / "truth.csv"
@@ -59,14 +72,16 @@ def pick_images(cfg, n, seed):
     names = sorted(df["image"].unique())
     random.Random(seed).shuffle(names)
     IMAGES.mkdir(parents=True, exist_ok=True)
-    truth = {}
+    truth, skipped = {}, []
     for name in names:
         if len(truth) == n:
             break
         im = cv2.imread(str(raw / "images" / name))
         g = df[df["image"] == name]
-        if im is None or (im.shape[1], im.shape[0]) != (int(g["image_width"].iloc[0]), int(g["image_height"].iloc[0])):
-            continue   # unreadable or rotated by EXIF, as in prepare_sku110k
+        if (im is None or (im.shape[1], im.shape[0]) != (int(g["image_width"].iloc[0]), int(g["image_height"].iloc[0]))
+                or corrupt(raw / "images" / name)):
+            skipped.append(name)
+            continue   # unreadable, rotated by EXIF (as in prepare_sku110k) or corrupt
         scale = cfg["max_side"] / max(im.shape[:2])
         if scale < 1:
             im = cv2.resize(im, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
@@ -76,6 +91,7 @@ def pick_images(cfg, n, seed):
         w = csv.writer(f)
         w.writerow(["image", "true_count"])
         w.writerows(truth.items())
+    print(f"picked {len(truth)} test images, skipped {len(skipped)}: {skipped}")
     return truth
 
 
@@ -181,6 +197,38 @@ def metrics(pred, truth):
             "undercounted": round(sum(p < t for p, t in pairs) / len(pairs), 2)}
 
 
+# Categorical slots 1-4 of the dataviz reference palette, in fixed order; marker shape is a second cue
+SERIES_STYLE = [("#2a78d6", "o"), ("#eb6834", "^"), ("#1baf7a", "s"), ("#eda100", "D")]
+
+
+def plot(methods, truth, out):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    lo, hi = 0, max([*truth.values()] + [v for m in methods.values() for v in m.values() if v is not None]) * 1.08
+    fig, ax = plt.subplots(figsize=(6.4, 4.6), dpi=200)
+    xs = [0, hi]
+    ax.fill_between(xs, [0.9 * x for x in xs], [1.1 * x for x in xs], color="#e8e7e3", lw=0, label="within 10%")
+    ax.plot(xs, xs, color="#8a8984", lw=1, ls="--", label="perfect count")
+    for (name, counts), (color, marker) in zip(methods.items(), SERIES_STYLE):
+        pts = [(truth[k], v) for k, v in counts.items() if v is not None]
+        ax.scatter(*zip(*pts), s=36, color=color, marker=marker, edgecolor="white", linewidth=1.2, label=name, zorder=3)
+    ax.set(xlim=(lo, hi), ylim=(lo, hi), xlabel="True product count (SKU-110K boxes)", ylabel="Predicted count")
+    ax.grid(color="#ecebe7", lw=0.6)
+    ax.set_axisbelow(True)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    for side in ("left", "bottom"):
+        ax.spines[side].set_color("#b5b4ae")
+    ax.tick_params(colors="#52514e")
+    ax.legend(frameon=False, fontsize=8, loc="upper left")
+    fig.tight_layout()
+    out.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out)
+    plt.close(fig)
+
+
 def score(args, full, truth):
     methods = json.loads(DETECTIONS.read_text()) if DETECTIONS.exists() else {}
     result = {"images": len(truth), "true_count": {"mean": round(statistics.mean(truth.values()), 1),
@@ -203,6 +251,9 @@ def score(args, full, truth):
         w.writerow(["image", "true_count"] + list(methods))
         for k, t in truth.items():
             w.writerow([k, t] + [methods[m].get(k) for m in methods])
+    labels = {k: ("Qwen2-VL-2B" if k == "vlm" else "YOLOv8n " + k.replace("sku110k_v8n_4k", "4k").replace(
+        "sku110k_v8n", "2k").replace("@conf", ", conf ")) for k in methods}
+    plot({labels[k]: v for k, v in methods.items()}, truth, ROOT / "data" / "results" / "figures" / "count_compare.png")
     print(json.dumps(result, indent=2))
     print(f"-> {out}")
 
