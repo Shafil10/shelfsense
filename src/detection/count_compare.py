@@ -170,12 +170,15 @@ def ask(args, full, truth):
                            return_tensors="pt").to(model.device)
         start = time.perf_counter()
         with torch.no_grad():
-            out = model.generate(**inputs, max_new_tokens=cfg["max_new_tokens"], do_sample=False)
+            # A count answer is ~12 tokens; a smaller limit than vlm.max_new_tokens only cuts off
+            # repetition loops, which cost minutes per image on the 4 GB GPU
+            out = model.generate(**inputs, max_new_tokens=args.max_new_tokens, do_sample=False)
         answer = processor.batch_decode(out[:, inputs.input_ids.shape[1]:], skip_special_tokens=True)[0].strip()
         sec = round(time.perf_counter() - start, 2)
         with open(ANSWERS, "a", encoding="utf-8") as f:
             f.write(json.dumps({"image": name, "answer": answer, "seconds": sec, "model": cfg["model"],
-                                "device": "cpu-bf16" if args.device == "cpu" else "gpu-fp16"}) + "\n")
+                                "device": "cpu-bf16" if args.device == "cpu" else "gpu-fp16",
+                                "max_new_tokens": args.max_new_tokens}) + "\n")
         print(f"{name} ({sec}s): {answer[:80]}")
 
 
@@ -265,6 +268,7 @@ def main():
     ap.add_argument("--weights", nargs="+", default=[], help="tune/detect: one or more detector weights")
     ap.add_argument("--device", default="cpu", help="cpu (default) or 0; ask on cpu runs the VLM in bfloat16")
     ap.add_argument("--threads", type=int, default=4, help="ask on cpu: torch threads")
+    ap.add_argument("--max-new-tokens", type=int, default=64, help="ask: answer length limit")
     ap.add_argument("--n", type=int, default=20)
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
