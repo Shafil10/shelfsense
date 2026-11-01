@@ -16,7 +16,7 @@ status "pending" and the reason, instead of a guessed value.
 Output: data/reports/<video>/audit.json and data/reports/<video>/evidence/*.jpg
 
 Usage (project root, venv active):
-  python -m src.report.audit --video Test_Videos/VID-20261018-WA0061.mp4 --weights runs/detect/sku110k_v8n/weights/best.pt
+  python -m src.report.audit --video Test_Videos/VID-20261018-WA0061.mp4      # detector: detection.weights
 """
 import argparse
 import csv
@@ -213,13 +213,13 @@ def audit(video, weights, full, device="cpu", reports_dir=REPORTS):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--video", nargs="+", required=True)
-    ap.add_argument("--weights", required=True)
+    ap.add_argument("--weights", help="default: detection.weights in the config")
     ap.add_argument("--config", default=str(DEFAULT_CONFIG))
     ap.add_argument("--device", default="cpu")
     args = ap.parse_args()
     full = yaml.safe_load(open(args.config, encoding="utf-8"))
     for v in args.video:
-        report, out_dir = audit(v, args.weights, full, args.device)
+        report, out_dir = audit(v, args.weights or ROOT / full["detection"]["weights"], full, args.device)
         s, i = report["summary"], report["integrity"]
         print(f"{Path(v).name}: {s['keyframes']} keyframes, median {s['products_per_keyframe']['median']} products, "
               f"{s['shelves_median']} shelves, verdict {i['verdict']} {[f['check'] for f in i['flags']]} "
