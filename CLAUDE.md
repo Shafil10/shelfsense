@@ -69,7 +69,7 @@ VLMs are weak at counting densely packed items, so detection and reasoning are s
 | 2 | Data and keyframe extraction | Simulator, extractor, dataset stats | Extractor + tests done and run on 3 real fridge clips; simulator, SKU-110K notebook and longer real videos still to do |
 | 3 | Baseline VLM | Zero-shot VLM results + failure cases (Kaggle notebook) | Notebook + evaluator written and tested; needs Kaggle run and verified ground truth |
 | 4 | Product detection | Annotated subset, fine-tuned YOLO nano, mAP | YOLOv8n trained on SKU-110K (mAP50 0.913), 222 frames pre-labelled; next: correct in Roboflow, fine-tune, mAP on our test frames |
-| 5 | Integration and rule engine | End-to-end pipeline → JSON report | Not started |
+| 5 | Integration and rule engine | End-to-end pipeline → JSON report | v1 `src/report/audit.py` (integrity, shelves, evidence; KPIs pending) |
 | 6 | Evaluation and demo | Metrics vs manual counts, demo app, design report | Not started |
 
 ## Sprint 2 files
@@ -198,6 +198,35 @@ or on Kaggle with the notebook. Settings in `configs/config.yaml` (`detection`, 
 - Next: correct pre-labels in Roboflow (test frames checked by two people: they are ground truth and
   pre-labels bias annotators), then `finetune_ours.py`.
 
+**Report 4 work (2026-11-01):**
+- Submitted Report 3 (Overleaf PDF, written by a teammate) describes a synthetic-shelf experiment whose
+  scripts (simulate_video.py, make_eval_set.py, scoring.py, make_sprint3_assets.py...) are NOT in this
+  repo, and its results section was a placeholder. Report 4 corrects this: real fridge baseline (v1/v2),
+  Crete blur metric, fp16. Report 3's targets (that Report 4 follows up): SKU subset, YOLOv8n mAP,
+  detector vs VLM counting on 20 SKU test images, synthetic empty-gap labels (changed), ONNX + CPU time.
+- `docs/weekly_reports/report_4.tex` (+ `preview4.tex`, build `E:\tools\tectonic\tectonic.exe preview4.tex`)
+  replaces the Report 4 half of `reports_3_4.tex`. `\TODO{}` = needs a team member.
+- `src/detection/export_onnx.py`: ONNX (1024x576 input) vs PyTorch on CPU (i7-8565U): 142 vs 106 ms/frame,
+  identical boxes -> keep PyTorch.
+- `src/detection/count_compare.py` (tune / detect / ask / score): 20 random SKU-110K TEST images; corrupt
+  JPEGs skipped (test_132 lost its lower half; detected from libjpeg's stderr in a subprocess). Count
+  threshold tuned on the 500 VAL images: 0.35 (`detection.count_conf`). 2k model: MAE 18.0 (conf 0.25)
+  -> 13.9 (9.4%, 70% within 10%). SKU-110K ground truth misses products (test_1121). Qwen2-VL-2B on the
+  CPU: 908 s/image in bf16 (fp32 does not fit in commit memory while training) -> run it on the GPU.
+- 4k training: `prepare_sku110k --n-train 4000 --out datasets/sku110k_yolo_4k` (superset, same val), then
+  continued from the 2k best.pt for 11 epochs (`runs/detect/sku110k_v8n_4k`).
+- `src/report/audit.py` (Sprint 5 v1): video -> `data/reports/<video>/audit.json` + evidence images:
+  SHA-256, metadata, re-use check (keyframe pHash vs earlier audits of other videos), coverage (blur gap,
+  empty keyframes), detector boxes grouped into shelves (layers merged when they touch: stacked boxes),
+  KPIs "pending" with reasons. All 115 videos: 3.2 s/video on CPU, all 4 byte-identical copies flagged,
+  0 false alarms. `scripts/make_reuse_variants.py`: re-encoded and half-size copies caught, 10% crop
+  missed -> Sprint 5: ORB matching + pixel check after alignment (honest re-filming of a shelf is common).
+- Never commit SKU-110K photos (count_outliers.jpg is gitignored); `data/reports/` is gitignored.
+- In this Bash tool, `\\` inside heredocs/python -c gets collapsed to `\`: edit LaTeX with the Edit tool.
+- GitHub: push access works (`git push`); `gh` CLI is not installed. Live dashboard (public, GitHub Pages
+  from the `gh-pages` branch): https://shafil10.github.io/shelfsense/ ; NutriCoco details shown publicly
+  with the user's OK (2026-11-01).
+
 ## The E: PC (second machine, differs from the laptop above)
 i7-8565U, 20 GB RAM, **GTX 1650 Max-Q 4 GB (CUDA)**, C: nearly full -> everything goes on E:
 (`.venv` Python 3.12 with torch 2.11+cu128, pip cache `E:\pip-cache`, HF models `E:\hf-cache`, datasets,
@@ -221,6 +250,7 @@ runs). Lessons:
 - Class every Sunday shows weekly progress; reports are due on other days.
 - Run locally: double-click `start_dashboard.bat` (http://localhost:8000, works offline). After editing
   `app/mockup/index.html`, run `python scripts/build_mockup_site.py`. `#evidence` opens an evidence view.
+  To update the live site, copy `app/mockup/site/index.html` to the `gh-pages` branch (git worktree) and push.
 
 - Features added after the competitor review (FieldPro, EasyPicky, BeatRoute, Bridge FieldOps): Perfect
   Store score per shop (placement 40, stock 25, price tags 10, evidence 25), rule-based "ShelfSense

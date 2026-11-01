@@ -382,7 +382,10 @@ though neighbouring videos film the same shelves from a slightly different posit
 are the easiest case, so we also altered three videos the way a dishonest representative might
 (Table~\ref{tab:r4-reuse}). Re-encoding and shrinking did not hide the footage, but cropping 5\% off
 each side did: a perceptual hash describes the whole frame, so a crop changes it. Matching local
-image features (for example ORB keypoints), which survive cropping, is planned for Sprint~5.
+image features (for example ORB keypoints), which survive cropping, is planned for Sprint~5. It must
+be combined with a pixel comparison after aligning the frames: feature matching alone would also
+match an honest new video of the same shelf, and our data shows that neighbouring clips often film
+the same shelf. A cropped copy is pixel-identical after alignment; a new recording is not.
 
 \begin{table}[!t]
 \centering
