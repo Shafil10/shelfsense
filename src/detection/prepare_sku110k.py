@@ -11,6 +11,10 @@ Output: datasets/sku110k_yolo/{images,labels}/{train,val}, data.yaml, subset.jso
 Usage (PowerShell, project root):
   tar -xzf datasets\\SKU110K_fixed.tar.gz -C datasets
   python -m src.detection.prepare_sku110k
+  python -m src.detection.prepare_sku110k --n-train 4000 --out datasets/sku110k_yolo_4k   # larger subset
+
+With the same seed a larger --n-train keeps the first images (a superset) and the same val images,
+so mAP stays comparable between subsets.
 """
 import argparse
 import json
@@ -70,9 +74,13 @@ def convert(raw_dir, csv_name, out_dir, split, n, max_side, seed):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--config", default=str(DEFAULT_CONFIG))
+    ap.add_argument("--n-train", type=int, help="override sku110k.n_train")
+    ap.add_argument("--out", help="override sku110k.yolo_dir")
     args = ap.parse_args()
     cfg = yaml.safe_load(open(args.config, encoding="utf-8"))["sku110k"]
-    raw, out = ROOT / cfg["raw_dir"], ROOT / cfg["yolo_dir"]
+    if args.n_train:
+        cfg["n_train"] = args.n_train
+    raw, out = ROOT / cfg["raw_dir"], ROOT / (args.out or cfg["yolo_dir"])
     if out.exists():
         shutil.rmtree(out)
     subset = {
