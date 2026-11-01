@@ -218,8 +218,8 @@ or on Kaggle with the notebook. Settings in `configs/config.yaml` (`detection`, 
 - `src/report/audit.py` (Sprint 5 v1): video -> `data/reports/<video>/audit.json` + evidence images:
   SHA-256, metadata, re-use check (keyframe pHash vs earlier audits of other videos), coverage (blur gap,
   empty keyframes), detector boxes grouped into shelves (layers merged when they touch: stacked boxes),
-  KPIs "pending" with reasons. All 115 videos: 3.2 s/video on CPU, all 4 byte-identical copies flagged,
-  0 false alarms. `scripts/make_reuse_variants.py`: re-encoded and half-size copies caught, 10% crop
+  KPIs "pending" with reasons. All 115 videos (4k model, conf 0.30): 2.6 s/video on CPU, all 4
+  byte-identical copies flagged, 0 false alarms, 3 coverage warnings (2k model: 6). `scripts/make_reuse_variants.py`: re-encoded and half-size copies caught, 10% crop
   missed -> Sprint 5: ORB matching + pixel check after alignment (honest re-filming of a shelf is common).
 - Never commit SKU-110K photos (count_outliers.jpg is gitignored); `data/reports/` is gitignored.
 - In this Bash tool, `\\` inside heredocs/python -c gets collapsed to `\`: edit LaTeX with the Edit tool.
