@@ -12,8 +12,9 @@ detection:
   conf_threshold: 0.25
   img_size: 640            # general default; Sprint 4 shelf models use sku110k.img_size
   max_det: 1000            # Ultralytics default is 300; a packed shelf can hold more products
-  count_conf: 0.35         # threshold for counting products: best count MAE on the 500 SKU-110K val images
-                           # (count_compare tune; 0.25 overcounts)
+  weights: runs/detect/sku110k_v8n_4k/weights/best.pt   # current best detector (4k SKU-110K images)
+  count_conf: 0.30         # threshold for counting products: best count MAE on the 500 SKU-110K val images
+                           # (count_compare tune: 0.30 for the 4k model, 0.35 for the 2k model; 0.25 overcounts)
 
 report:                    # Sprint 5 audit report (src/report/audit.py)
   reuse_hash_distance: 4   # keyframe pHash distance <= this = same picture as in an earlier audit

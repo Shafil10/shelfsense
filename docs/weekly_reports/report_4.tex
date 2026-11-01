@@ -13,8 +13,8 @@ Status of the targets set in Weekly Report 3:
   \item \textbf{SKU-110K training subset in YOLO format --- Done (larger).} We prepared 2{,}000
   training and 500 validation images instead of 1{,}500 and 300, and later a 4{,}000-image training
   set (Section~\ref{sec:r4-det}).
-  \item \textbf{Fine-tune YOLOv8n and report mAP --- Done.} mAP@0.5 \TODO{4k: 0.913} and
-  mAP@0.5:0.95 \TODO{4k: 0.564} on 500 held-out SKU-110K images. Training ran on a team laptop with a
+  \item \textbf{Fine-tune YOLOv8n and report mAP --- Done.} mAP@0.5 0.918 and
+  mAP@0.5:0.95 0.569 on 500 held-out SKU-110K images. Training ran on a team laptop with a
   GTX~1650 GPU instead of Kaggle: it has no weekly time limit and no upload of the dataset is needed.
   \item \textbf{Detector vs.\ VLM counting on 20 SKU-110K images --- Done.} See
   Section~\ref{sec:r4-count}.
@@ -162,10 +162,10 @@ We trained YOLOv8n \cite{jocher2023yolov8,redmon2016yolo} with one class, \emph{
 brands), on a random subset of SKU-110K \cite{goldman2019sku110k}. SKU-110K photos are up to about
 4{,}000 pixels wide, so we shrank them once to 1{,}280 pixels to keep data loading fast. The first
 model was trained on 2{,}000 images for 30 epochs at 1{,}024 pixels (163.5 minutes on a GTX~1650
-with 4\,GB). Its mAP was still rising at the last epoch, so we continued training it for
-\TODO{20} more epochs on 4{,}000 images (a superset of the first 2{,}000, same 500 validation
-images, \TODO{minutes}). Table~\ref{tab:r4-det} shows the results and two settings that matter for
-dense shelves.
+with 4\,GB). Its mAP was still rising at the last epoch, so we continued training it for 11 more
+epochs on 4{,}000 images (a superset of the first 2{,}000, same 500 validation images, 103 minutes;
+mosaic augmentation switched off for the last 3 epochs). Table~\ref{tab:r4-det} shows the results
+and two settings that matter for dense shelves.
 
 \begin{table}[!t]
 \centering
@@ -178,7 +178,10 @@ Model and setting & mAP50 & mAP50-95 & Precision & Recall \\
 2k images, 1{,}024\,px, max.\ 1{,}000 boxes & 0.913 & 0.564 & 0.897 & 0.844 \\
 2k images, 1{,}024\,px, max.\ 299 boxes & 0.889 & 0.549 & 0.897 & 0.833 \\
 2k images, 640\,px, max.\ 1{,}000 boxes & 0.866 & 0.510 & 0.875 & 0.792 \\
-\TODO{4k images, 1{,}024\,px, max.\ 1{,}000 boxes} & \TODO{} & \TODO{} & \TODO{} & \TODO{} \\
+\hline
+4k images, 1{,}024\,px, max.\ 1{,}000 boxes (chosen) & \textbf{0.918} & \textbf{0.569} & 0.896 & \textbf{0.852} \\
+4k images, 1{,}024\,px, max.\ 299 boxes & 0.890 & 0.555 & 0.898 & 0.840 \\
+4k images, 640\,px, max.\ 1{,}000 boxes & 0.870 & 0.517 & 0.878 & 0.797 \\
 \hline
 \end{tabular}
 \end{table}
@@ -197,7 +200,11 @@ mAP is still rising at epoch 30.}
   1{,}000.
   \item \textbf{Image size.} Products are small, so the default 640\,px input costs 4.7 mAP50
   points against 1{,}024\,px.
-  \item \textbf{More data.} \TODO{effect of 4k images}
+  \item \textbf{More data.} Doubling the training images raised mAP50 from 0.913 to 0.918 and recall
+  from 0.844 to 0.852 at the same precision. After the restart, mAP first dipped to 0.899 while the
+  learning rate was high and passed the old model only in the last epochs, so a longer run on even
+  more data may still help, but the gain per GPU hour is now small: the larger gap is on our own
+  close-up frames, which only fine-tuning can close.
   \item \textbf{On our footage.} The detector found 151{,}279 products on our 4{,}558 keyframes,
   a median of 29 per frame. It boxes nearly every item on packed shelves seen from a normal
   distance, but misses large products close to the camera (Fig.~\ref{fig:r4-detect}). Milk-carton
@@ -223,9 +230,11 @@ Images whose JPEG data is corrupt were skipped automatically: in one of them the
 photo is lost (OpenCV fills it with flat colour) while the ground truth still has 126 boxes there, so
 no method could count it.
 The VLM was asked the counting prompt of Report~3 (\emph{``Count every individual product facing
-\ldots''}, JSON answer). The detector counts its boxes above a confidence threshold. The default of
-0.25 overcounts, so we chose the threshold that counts best on the 500 validation images (0.35,
-validation MAE 19.7 $\rightarrow$ 16.0) and then applied it to the test images unchanged.
+\ldots''}, JSON answer; float16 on the GPU, answers limited to 64 tokens, which only cuts off
+repetition loops). The detector counts its boxes above a confidence threshold. The default of
+0.25 overcounts, so for each model we chose the threshold that counts best on the 500 validation
+images (2k model: 0.35, validation MAE 19.7 $\rightarrow$ 16.0; 4k model: 0.30, 17.3 $\rightarrow$
+15.8) and then applied it to the test images unchanged.
 Table~\ref{tab:r4-count} gives the result.
 
 \begin{table}[!t]
@@ -237,9 +246,10 @@ Table~\ref{tab:r4-count} gives the result.
 Method & MAE & MAPE & Within 10\% & Undercounted \\
 \hline
 Qwen2-VL-2B (zero-shot) & \TODO{} & \TODO{} & \TODO{} & \TODO{} \\
-YOLOv8n, conf 0.25 (default) & 18.0 & 12.9\% & 55\% & 15\% \\
-YOLOv8n, conf 0.35 (tuned on val) & 13.9 & 9.4\% & 70\% & 45\% \\
-\TODO{YOLOv8n 4k} & \TODO{} & \TODO{} & \TODO{} & \TODO{} \\
+YOLOv8n 2k images, conf 0.25 (default) & 18.0 & 12.9\% & 55\% & 15\% \\
+YOLOv8n 2k images, conf 0.35 (tuned on val) & 13.9 & 9.4\% & 70\% & 45\% \\
+YOLOv8n 4k images, conf 0.25 & 14.6 & 10.3\% & 75\% & 20\% \\
+YOLOv8n 4k images, conf 0.30 (tuned on val) & \textbf{12.1} & \textbf{8.4\%} & 70\% & 30\% \\
 \hline
 \end{tabular}
 \end{table}
@@ -348,7 +358,8 @@ audit report, running entirely on the CPU:
   targets a dishonest representative who re-submits old footage under a new name.
   \item \textbf{Keyframes} from the Sprint~2 extractor, and a \emph{coverage} warning when more than
   2\,s of the video is lost to blur in one stretch or a keyframe shows no products.
-  \item \textbf{Products} from the detector (confidence 0.35, Section~\ref{sec:r4-count}), grouped
+  \item \textbf{Products} from the detector (for this run the 2k model at confidence 0.35,
+  Section~\ref{sec:r4-count}; the pipeline now uses the 4k model at 0.30), grouped
   into shelves: boxes are first grouped into horizontal layers, then layers that touch are merged,
   because stacked packs on one shelf leave no gap while the next shelf starts after the shelf edge
   and price strip. Without the merge step, stacked toothpaste boxes were counted as up to 18 shelves.
