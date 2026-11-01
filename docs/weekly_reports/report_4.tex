@@ -1,7 +1,8 @@
 % ShelfSense weekly report 4 (replaces the Report 4 part of reports_3_4.tex, which followed an
 % older draft of Report 3). Paste into the Overleaf main file in place of the empty
 % "\section{Weekly Report 4}" heading. Upload the files in figures/ to the Overleaf project and add the
-% entries in new_refs.bib to ref.bib. Needs \usepackage{xcolor} and
+% entries in new_refs.bib to ref.bib. figures/count_outliers.jpg shows an SKU-110K photo, which may not
+% be redistributed, so it is not in Git: copy it from data/results/figures/ on the training PC. Needs \usepackage{xcolor} and
 % \newcommand{\TODO}[1]{\textcolor{red}{[#1]}} in the preamble. Lines marked \TODO{...} need a team member.
 
 \section{Weekly Report 4}
@@ -217,7 +218,10 @@ Right two: packed shelves at normal distance, where nearly every product is foun
 
 \subsubsection{Counting: detector vs.\ VLM}\label{sec:r4-count}
 We took 20 random images from the SKU-110K \emph{test} split, which was used for neither training
-nor validation; the true count of an image is its number of annotated boxes (108--178, mean 131.6).
+nor validation; the true count of an image is its number of annotated boxes (108--197, mean 135.2).
+Images whose JPEG data is corrupt were skipped automatically: in one of them the lower half of the
+photo is lost (OpenCV fills it with flat colour) while the ground truth still has 126 boxes there, so
+no method could count it.
 The VLM was asked the counting prompt of Report~3 (\emph{``Count every individual product facing
 \ldots''}, JSON answer). The detector counts its boxes above a confidence threshold. The default of
 0.25 overcounts, so we chose the threshold that counts best on the 500 validation images (0.35,
@@ -226,21 +230,43 @@ Table~\ref{tab:r4-count} gives the result.
 
 \begin{table}[!t]
 \centering
-\caption{Product counting on 20 SKU-110K test images (true count 108--178).}
+\caption{Product counting on 20 SKU-110K test images (true count 108--197).}
 \label{tab:r4-count}
 \begin{tabular}{lcccc}
 \hline
 Method & MAE & MAPE & Within 10\% & Undercounted \\
 \hline
 Qwen2-VL-2B (zero-shot) & \TODO{} & \TODO{} & \TODO{} & \TODO{} \\
-YOLOv8n, conf 0.25 (default) & 21.4 & 15.7\% & 50\% & 20\% \\
-YOLOv8n, conf 0.35 (tuned on val) & 15.8 & 11.6\% & 70\% & 45\% \\
+YOLOv8n, conf 0.25 (default) & 18.0 & 12.9\% & 55\% & 15\% \\
+YOLOv8n, conf 0.35 (tuned on val) & 13.9 & 9.4\% & 70\% & 45\% \\
 \TODO{YOLOv8n 4k} & \TODO{} & \TODO{} & \TODO{} & \TODO{} \\
 \hline
 \end{tabular}
 \end{table}
 
 \TODO{interpretation after VLM run}
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=0.8\linewidth]{figures/count_compare.png}
+\caption{True vs.\ predicted product count on the 20 test images. Points in the grey band are within
+10\% of the truth.}
+\label{fig:r4-count}
+\end{figure}
+
+Part of the detector's ``error'' is in the ground truth itself. In the image with the largest
+overcount (Fig.~\ref{fig:r4-outlier}) the annotators left a battery display and the far shelves
+unlabelled, and the detector finds those products. Exact counts against SKU-110K are therefore a
+slightly pessimistic measure for the detector.
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\linewidth]{figures/count_outliers.jpg}
+\caption{Largest overcount. Left: SKU-110K ground truth (178 boxes). Right: our detector at
+confidence 0.35 (235 boxes); the battery display and far shelves are real products missing from the
+ground truth.}
+\label{fig:r4-outlier}
+\end{figure}
 
 \subsubsection{CPU inference}\label{sec:r4-cpu}
 The team laptops have no NVIDIA GPU, so the detector must run on the CPU. We exported it to ONNX
@@ -249,7 +275,9 @@ square would be 44\% padding) and timed it on 30 of our test keyframes, after th
 (Table~\ref{tab:r4-cpu}). The ONNX model gave exactly the same box counts as PyTorch, but on this
 CPU it was slower, so we keep PyTorch. At about 0.1\,s per keyframe, a 30-second video sampled at
 1\,fps is processed in about 3\,s, so the detector is not the bottleneck of the pipeline; the VLM
-is (Section~\ref{sec:r4-crops}).
+is. Qwen2-VL-2B answering one counting question on one shelf photo took 908\,s on the same CPU
+(bfloat16, 4 threads; float32 needs about 9\,GB of memory), against seconds on a GPU. The VLM
+therefore has to run on a server GPU, while detection can run on the laptop or phone side.
 
 \begin{table}[!t]
 \centering
