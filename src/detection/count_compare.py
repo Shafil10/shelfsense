@@ -17,7 +17,7 @@ The images are copied, shrunk to sku110k.max_side like the training data, to dat
 Usage (project root, venv active):
   python -m src.detection.count_compare tune --weights runs/detect/sku110k_v8n/weights/best.pt
   python -m src.detection.count_compare detect --weights runs/detect/sku110k_v8n/weights/best.pt
-  python -m src.detection.count_compare ask
+  python -m src.detection.count_compare ask --device 0       # GPU, float16 (or --device cpu: bfloat16)
   python -m src.detection.count_compare score
 """
 import argparse
@@ -131,7 +131,15 @@ def ask(args, full, truth):
     from src.vlm.crop_brands import load_vlm
 
     cfg = full["vlm"]
-    model, processor = load_vlm(cfg)
+    if args.device == "cpu":
+        # While the GPU trains: bfloat16 on the CPU (float32 needs ~9 GB RAM), fewer threads so training's
+        # data loader keeps up. Same weights and prompt; only speed and number rounding differ.
+        from transformers import AutoProcessor, Qwen2VLForConditionalGeneration
+        torch.set_num_threads(args.threads)
+        model = Qwen2VLForConditionalGeneration.from_pretrained(cfg["model"], torch_dtype=torch.bfloat16).eval()
+        processor = AutoProcessor.from_pretrained(cfg["model"], min_pixels=256 * 28 * 28, max_pixels=1280 * 28 * 28)
+    else:
+        model, processor = load_vlm(cfg)
     done = set()
     if ANSWERS.exists():
         done = {json.loads(line)["image"] for line in ANSWERS.read_text(encoding="utf-8").splitlines()}
@@ -150,7 +158,8 @@ def ask(args, full, truth):
         answer = processor.batch_decode(out[:, inputs.input_ids.shape[1]:], skip_special_tokens=True)[0].strip()
         sec = round(time.perf_counter() - start, 2)
         with open(ANSWERS, "a", encoding="utf-8") as f:
-            f.write(json.dumps({"image": name, "answer": answer, "seconds": sec, "model": cfg["model"]}) + "\n")
+            f.write(json.dumps({"image": name, "answer": answer, "seconds": sec, "model": cfg["model"],
+                                "device": "cpu-bf16" if args.device == "cpu" else "gpu-fp16"}) + "\n")
         print(f"{name} ({sec}s): {answer[:80]}")
 
 
@@ -203,7 +212,8 @@ def main():
     ap.add_argument("step", choices=["tune", "detect", "ask", "score"])
     ap.add_argument("--config", default=str(DEFAULT_CONFIG))
     ap.add_argument("--weights", nargs="+", default=[], help="tune/detect: one or more detector weights")
-    ap.add_argument("--device", default="cpu", help="tune/detect: cpu (default) or 0")
+    ap.add_argument("--device", default="cpu", help="cpu (default) or 0; ask on cpu runs the VLM in bfloat16")
+    ap.add_argument("--threads", type=int, default=4, help="ask on cpu: torch threads")
     ap.add_argument("--n", type=int, default=20)
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
