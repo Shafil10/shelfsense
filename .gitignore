@@ -29,3 +29,6 @@ Thumbs.db
 
 # Tectonic build output (the shared copy is Weekly_Report_3_4_Group1.pdf)
 docs/weekly_reports/preview.pdf
+docs/weekly_reports/preview4.pdf
+# shows an SKU-110K photo (no redistribution): copy from data/results/figures/ for Overleaf only
+docs/weekly_reports/figures/count_outliers.jpg
