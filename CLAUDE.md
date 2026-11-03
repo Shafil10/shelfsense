@@ -286,6 +286,14 @@ variables set 2026-11-03 so tools default to E: (new processes only; restart VS 
   `app/mockup/index.html`, run `python scripts/build_mockup_site.py`. `#evidence` opens an evidence view.
   To update the live site, copy `app/mockup/site/index.html` to the `gh-pages` branch (git worktree) and push.
 
+- **Live map (2026-11-04):** Leaflet 1.9.4 (cdnjs) + OpenStreetMap tiles, free, no API key; loaded on first
+  use, schematic SVG map when offline. Auditor "Live map" page (`#livemap`) + overview map: shops coloured by
+  recommendation, merchandiser positions **simulated** (walk between their shops) until the mobile app sends
+  real GPS. Merchandiser "Route map" + "Show my location" (browser GPS, https/localhost only) and GPS
+  check-in with the real position and distance to the shop (>200 m flagged; demo point if location blocked).
+  Shop coordinates are sample points around real area centres (`AREA_LL`). Leaflet also names itself `L`,
+  like the page's text helper `L()`: `noConflict()` restores it. Test with headless Edge
+  (`--user-data-dir=E:\tools\edge-test\profile`, `--screenshot`), never pipe its output into `Select -First`.
 - Features added after the competitor review (FieldPro, EasyPicky, BeatRoute, Bridge FieldOps): Perfect
   Store score per shop (placement 40, stock 25, price tags 10, evidence 25), rule-based "ShelfSense
   Assistant" alerts (no LLM), corrective actions / merchandiser missions, schematic coverage map, beat
