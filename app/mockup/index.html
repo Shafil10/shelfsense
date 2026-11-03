@@ -271,6 +271,24 @@ html[lang="bn"] .map-area { font-family: "Noto Sans Bengali", "Nirmala UI", sans
 .gps { display: inline-flex; align-items: center; gap: 4px; color: var(--ok); font-family: var(--font-mono); font-size: 0.72rem; }
 .gps svg { width: 13px; height: 13px; }
 div.gps { padding: 8px 12px; border-radius: 10px; background: var(--ok-soft); border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent); font-size: 0.8rem; }
+div.gps.far { color: var(--bad); background: var(--bad-soft); border-color: color-mix(in srgb, var(--bad) 40%, transparent); }
+/* live map (Leaflet + OpenStreetMap); z-index 0 keeps Leaflet's panes under the sticky bars and modals */
+.lmap-slot { height: 300px; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: var(--surface-2); }
+.lmap-slot.tall { height: 460px; }
+.lmap { width: 100%; height: 100%; position: relative; z-index: 0; font: inherit; }
+.lmap .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.85) contrast(.9); }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .lmap .leaflet-tile-pane { filter: none; } }
+:root[data-theme="light"] .lmap .leaflet-tile-pane { filter: none; }
+.lmap path.lp-pay { stroke: var(--ok); fill: var(--ok); }
+.lmap path.lp-pending { stroke: var(--muted); fill: var(--muted); }
+.lmap path.lp-hold { stroke: var(--bad); fill: var(--bad); }
+.lmap path.lp-reaudit { stroke: var(--warn); fill: var(--warn); }
+.lmap path.lrep { stroke: #fff; fill: var(--accent-2); }
+.lmap path.lme { stroke: #fff; fill: var(--accent); }
+.lmap path.lacc { stroke: var(--accent); fill: var(--accent); }
+.maptools { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 10px; }
+.trow { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 0.84rem; }
+.trow .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent-2); box-shadow: 0 0 10px var(--accent-2); }
 .result.warn-r { background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
 .result.warn-r .big { color: var(--warn); }
 .prod { display: flex; gap: 12px; align-items: center; padding: 8px 14px 8px 8px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); max-width: 100%; min-width: 0; }
@@ -512,6 +530,18 @@ const NC_SHOPS = [
   { en: "Haque Store", bn: "হক স্টোর", aen: "Mirpur 10", abn: "মিরপুর ১০", rep: 1, sc: "coverage", day: 23, hm: "10:20" },
   { en: "Nabil Mudi Dokan", bn: "নাবিল মুদি দোকান", aen: "Mirpur 11", abn: "মিরপুর ১১", rep: 2, sc: "competitor_confirmed", day: 22, hm: "17:15" }
 ];
+/* Approximate area centres in Dhaka (lat, lon). Sample shops are placed 250-450 m around them. */
+const AREA_LL = {
+  "Mirpur 10": [23.8069, 90.3687], "Mirpur 11": [23.8189, 90.3655], "Dhanmondi 27": [23.7560, 90.3746],
+  "Uttara Sector 7": [23.8697, 90.3982], "Mohammadpur": [23.7662, 90.3588], "Gulshan 2": [23.7949, 90.4143],
+  "Banani": [23.7940, 90.4043], "Farmgate": [23.7575, 90.3900], "Bashundhara R/A": [23.8193, 90.4520]
+};
+function shopLL(s) { const c = AREA_LL[s.aen], a = s.i * 2.4, r = 0.0025 + (s.i % 3) * 0.001; return [c[0] + r * Math.sin(a), c[1] + r * Math.cos(a)]; }
+function distM(a, b) {
+  const R = 6371000, k = Math.PI / 180, dLat = (b[0] - a[0]) * k, dLon = (b[1] - a[1]) * k;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * k) * Math.cos(b[0] * k) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
 const FRAMES = [{ t: "00:01.4", shelf: 0 }, { t: "00:03.2", shelf: 1 }, { t: "00:05.6", shelf: 2 }, { t: "00:07.0", shelf: 3 }];
 
 /* ---------- text ---------- */
@@ -575,7 +605,7 @@ const TX = {
     payTotal: "Paid to {n} shops", payHeld: "On hold · {n} shops", payWait: "Waiting for review · {n}",
     actions: "Actions", actionsP: "Corrective actions turn findings into work. The merchandiser fixes the problem and films the fridge again as proof.",
     assistant: "ShelfSense Assistant", assistantD: "Rule-based alerts from the latest audits", open: "Open",
-    askTitle: "Ask about this audit", askD: "Free AI model running on this computer (Qwen2.5-3B via Ollama). It only sees this audit's data and never decides payments.",
+    askTitle: "Ask about this audit", askD: "Free AI model running on this computer (Gemma 3 4B via Ollama). It only sees this audit's data and never decides payments.",
     askPh: "e.g. Why is this shop on hold? Which keyframe shows the problem?", askBtn: "Ask", askBusy: "Thinking… (a few seconds on the GPU, longer on a laptop CPU)",
     askOff: "The AI assistant is not running. Start it with start_assistant.bat on the demo PC, then ask again.",
     askPages: "The AI assistant runs only on the team's demo PC (it is a local model), not on this public website.",
@@ -596,7 +626,15 @@ const TX = {
     missions: "My missions", missionsEmpty: "No missions. Nice work.", missionHint: "Fix it, then film the fridge again as proof",
     beat: "Beat adherence", timeShop: "Avg time in shop", minutes: "{n} min",
     checkedIn: "checked in {t}, {m} m away", checkedAt: "Checked in at {t}",
-    checkin: "Check in at the shop", checkinBtn: "Check in with GPS", checkinDone: "Checked in · {lat}° N, {lon}° E · {m} m from the shop", checkinNote: "Location is simulated in this demo.",
+    checkin: "Check in at the shop", checkinBtn: "Check in with GPS", checkinDone: "Checked in · {lat}° N, {lon}° E · {m} from the shop", checkinNote: "Uses this device's real GPS (allow location access). If location is blocked, a demo location near the shop is used.",
+    checkinFar: "Checked in {m} from the shop. The auditor will see this distance.", checkinSim: "demo location",
+    liveMap: "Live map", liveMapP: "Shops and merchandisers on OpenStreetMap. Merchandiser positions are simulated until the mobile app sends real GPS.",
+    routeMap: "Route map", locate: "Show my location", locating: "Finding your location…",
+    youAt: "You: {lat}, {lon} (±{acc}) · updated {t} · {dist} to {shop}",
+    locOff: "Location is not available. Allow location access in the browser (it works on https and localhost only).",
+    mapOffline: "The street map needs internet. Showing the schematic map instead.",
+    you: "You", teamTitle: "Merchandisers now", repAt: "At {s}", repTo: "On the way to {s}", repSim: "simulated",
+    trackNote: "Live location is shared only during working hours and with the merchandiser's consent.", mUnit: "m", kmUnit: "km",
     offline: "No internet (test offline mode)", savedOffline: "Saved on this phone", savedOfflineD: "No internet. The video uploads by itself when you are back online.",
     uploadNow: "Back online: upload now", queued: "{n} video waiting to upload",
     i_gpsFar: "GPS check-in {m} km from the shop",
@@ -661,7 +699,7 @@ const TX = {
     payTotal: "{n}টি দোকানে মোট", payHeld: "স্থগিত · {n}টি দোকান", payWait: "যাচাইয়ের অপেক্ষায় · {n}",
     actions: "করণীয়", actionsP: "সংশোধনী কাজ ফলাফলকে কাজে রূপ দেয়। মার্চেন্ডাইজার সমস্যা ঠিক করে প্রমাণ হিসেবে আবার ফ্রিজের ভিডিও করেন।",
     assistant: "ShelfSense সহকারী", assistantD: "সর্বশেষ অডিট থেকে নিয়মভিত্তিক সতর্কতা", open: "খুলুন",
-    askTitle: "এই অডিট সম্পর্কে জিজ্ঞেস করুন", askD: "এই কম্পিউটারে চলা বিনামূল্যের AI মডেল (Ollama-তে Qwen2.5-3B)। এটি শুধু এই অডিটের তথ্য দেখে এবং কখনো টাকা দেওয়ার সিদ্ধান্ত নেয় না।",
+    askTitle: "এই অডিট সম্পর্কে জিজ্ঞেস করুন", askD: "এই কম্পিউটারে চলা বিনামূল্যের AI মডেল (Ollama-তে Gemma 3 4B)। এটি শুধু এই অডিটের তথ্য দেখে এবং কখনো টাকা দেওয়ার সিদ্ধান্ত নেয় না।",
     askPh: "যেমন: দোকানটির টাকা কেন আটকে আছে? কোন কী-ফ্রেমে সমস্যা দেখা যায়?", askBtn: "জিজ্ঞেস করুন", askBusy: "ভাবছে… (GPU-তে কয়েক সেকেন্ড, ল্যাপটপের CPU-তে বেশি সময়)",
     askOff: "AI সহকারী চালু নেই। ডেমো কম্পিউটারে start_assistant.bat দিয়ে চালু করে আবার জিজ্ঞেস করুন।",
     askPages: "AI সহকারী শুধু দলের ডেমো কম্পিউটারে চলে (এটি একটি লোকাল মডেল), এই পাবলিক ওয়েবসাইটে নয়।",
@@ -682,7 +720,15 @@ const TX = {
     missions: "আমার মিশন", missionsEmpty: "কোনো মিশন নেই। ভালো কাজ।", missionHint: "ঠিক করুন, তারপর প্রমাণ হিসেবে আবার ভিডিও করুন",
     beat: "রুট মানা", timeShop: "দোকানে গড় সময়", minutes: "{n} মিনিট",
     checkedIn: "চেক-ইন {t}, {m} মিটার দূরে", checkedAt: "চেক-ইন {t}",
-    checkin: "দোকানে চেক-ইন", checkinBtn: "GPS দিয়ে চেক-ইন", checkinDone: "চেক-ইন হয়েছে · {lat}° N, {lon}° E · দোকান থেকে {m} মিটার", checkinNote: "এই ডেমোতে লোকেশন সিমুলেটেড।",
+    checkin: "দোকানে চেক-ইন", checkinBtn: "GPS দিয়ে চেক-ইন", checkinDone: "চেক-ইন হয়েছে · {lat}° N, {lon}° E · দোকান থেকে {m}", checkinNote: "এই ডিভাইসের আসল GPS ব্যবহার হয় (লোকেশনের অনুমতি দিন)। লোকেশন বন্ধ থাকলে দোকানের কাছের একটি ডেমো লোকেশন ব্যবহার হয়।",
+    checkinFar: "দোকান থেকে {m} দূরে চেক-ইন হয়েছে। অডিটর এই দূরত্ব দেখতে পাবেন।", checkinSim: "ডেমো লোকেশন",
+    liveMap: "লাইভ ম্যাপ", liveMapP: "OpenStreetMap-এ দোকান ও মার্চেন্ডাইজার। মোবাইল অ্যাপ আসল GPS পাঠানো শুরু না করা পর্যন্ত মার্চেন্ডাইজারদের অবস্থান সিমুলেটেড।",
+    routeMap: "রুট ম্যাপ", locate: "আমার লোকেশন দেখান", locating: "আপনার লোকেশন খোঁজা হচ্ছে…",
+    youAt: "আপনি: {lat}, {lon} (±{acc}) · হালনাগাদ {t} · {shop} থেকে {dist}",
+    locOff: "লোকেশন পাওয়া যাচ্ছে না। ব্রাউজারে লোকেশনের অনুমতি দিন (শুধু https ও localhost-এ কাজ করে)।",
+    mapOffline: "রাস্তার ম্যাপের জন্য ইন্টারনেট লাগে। তাই নকশা ম্যাপ দেখানো হচ্ছে।",
+    you: "আপনি", teamTitle: "এখন মার্চেন্ডাইজাররা", repAt: "{s}-এ আছেন", repTo: "{s}-এর পথে", repSim: "সিমুলেটেড",
+    trackNote: "লাইভ লোকেশন শুধু কাজের সময়ে এবং মার্চেন্ডাইজারের সম্মতিতে শেয়ার হয়।", mUnit: "মিটার", kmUnit: "কিমি",
     offline: "ইন্টারনেট নেই (অফলাইন মোড পরীক্ষা)", savedOffline: "এই ফোনে সংরক্ষিত", savedOfflineD: "ইন্টারনেট নেই। আবার অনলাইনে এলে ভিডিও নিজে থেকে আপলোড হবে।",
     uploadNow: "অনলাইনে ফিরেছি: এখন আপলোড", queued: "{n}টি ভিডিও আপলোডের অপেক্ষায়",
     i_gpsFar: "GPS চেক-ইন দোকান থেকে {m} কিমি দূরে",
@@ -945,7 +991,7 @@ const LOGO = '<svg viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient 
 
 const NAV = {
   merch: [["today", "home"], ["newVisit", "cam"], ["myVisits", "list"], ["profile", "star"]],
-  auditor: [["overview", "grid"], ["review", "flag"], ["actions", "check"], ["shops", "shop"], ["merchs", "users"]],
+  auditor: [["overview", "grid"], ["liveMap", "pin"], ["review", "flag"], ["actions", "check"], ["shops", "shop"], ["merchs", "users"]],
   admin: [["companies", "building"], ["users", "users"], ["contracts", "fridge"], ["brands", "tag"], ["settings", "gear"], ["system", "pulse"]]
 };
 const ME = { merch: 0, auditor: "Nadia Rahman", admin: "ShelfSense Admin" };
@@ -1118,6 +1164,7 @@ function render() {
   if (!S.role) {
     app.innerHTML = renderLogin();
     if (fresh) { app.firstElementChild.classList.add("enter"); countUp(app); }
+    mountMap();
     return;
   }
   const co = curCo();
@@ -1130,9 +1177,10 @@ function render() {
     S.companies.map(c => '<option value="' + c.id + '"' + (c.id === S.co ? " selected" : "") + ">" + esc(coName(c)) + "</option>").join("") + "</select>";
   head += '<span class="who-name small muted">' + esc(who) + '</span><button class="btn ghost" data-act="logout">' + t("logout") + "</button></div>";
   const side = '<nav class="side" aria-label="Main">' + nav.map(([k, ic]) => '<button data-act="nav" data-v="' + k + '"' + (S.view === k ? ' aria-current="page"' : "") + ">" + icon(ic) + "<span>" + t(k) + (k === "review" && kpis().review ? ' <span class="chip warn">' + d(kpis().review) + "</span>" : "") + "</span></button>").join("") + "</nav>";
-  const tab = '<nav class="tabbar" aria-label="Main">' + nav.slice(0, 5).map(([k, ic]) => '<button data-act="nav" data-v="' + k + '"' + (S.view === k ? ' aria-current="page"' : "") + ">" + icon(ic) + "<span>" + t(k) + "</span></button>").join("") + "</nav>";
+  const tab = '<nav class="tabbar" aria-label="Main">' + nav.slice(0, 6).map(([k, ic]) => '<button data-act="nav" data-v="' + k + '"' + (S.view === k ? ' aria-current="page"' : "") + ">" + icon(ic) + "<span>" + t(k) + "</span></button>").join("") + "</nav>";
   app.innerHTML = head + '<div class="body">' + side + '<main class="' + (fresh ? "enter" : "") + '">' + renderView() + "</main></div>" + tab;
   if (fresh) countUp(app.querySelector("main"));
+  mountMap();
 }
 
 function renderLogin() {
@@ -1174,7 +1222,7 @@ VIEWS.overview = function () {
     kpi(t("needsReview"), K.review, "", t("needsReview_d"), '<button data-act="nav" data-v="review">' + t("openQueue") + " →</button>", K.review ? "alert" : "") +
     "</div>" +
     assistantPanel() +
-    '<div class="grid2"><section class="panel"><header><h2>' + t("mapTitle") + '</h2><span class="small muted">' + t("mapD") + "</span></header>" + mapSVG(D.shops) + mapLegend() + "</section>" +
+    '<div class="grid2"><section class="panel"><header><h2>' + t("mapTitle") + '</h2><span class="small muted">' + t("mapD") + "</span></header>" + mapSlot("team", mapSVG(D.shops)) + mapLegend() +"</section>" +
     leaderPanel(D.shops) + "</div>" +
     '<div class="grid2"><section class="panel"><header><h2>' + t(sh ? "trendFront" : "trend") + '</h2></header>' + lineChart(trend) + "</section>" +
     '<section class="panel"><header><h2>' + t("sosByBrand") + '</h2><span class="small muted"><span class="chip acc">' + t("yours") + '</span> <span class="chip">' + t("rival") + "</span></span></header><div class=\"bars\">" + bars + "</div></section></div>" +
@@ -1222,6 +1270,133 @@ function mapSVG(shops) {
 function mapLegend() {
   return '<div class="legend">' + ["pay", "pending", "hold", "reaudit"].map(r => '<span><i class="lg ' + r + '"></i>' + t(r) + "</span>").join("") + "</div>";
 }
+
+/* ---------- live map: Leaflet + OpenStreetMap (free, no API key), loaded on first use ----------
+   Leaflet also names itself L, like our text helper L(): noConflict() gives our L() back right after loading.
+   One map element is kept and moved into each page's .lmap-slot, so zoom and markers survive re-renders.
+   Kinds: "team" (overview) and "live" (live map page) show all shops + merchandisers, "route" a merchandiser's route. */
+const LEAFLET = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/";
+const LMAP = { lib: null, loading: null, failed: false, el: null, map: null, key: "", shops: null, reps: null, me: null, repMarks: {}, pos: null, busy: false, err: false, watch: null, timer: null };
+function mapSlot(kind, fallback) {
+  if (LMAP.failed) return '<p class="small muted">' + t("mapOffline") + "</p>" + fallback;
+  return '<div class="lmap-slot' + (kind === "live" ? " tall" : "") + '" data-kind="' + kind + '"></div>';
+}
+function mapTools(kind) {
+  if (LMAP.failed) return "";
+  return '<div class="maptools"><button class="btn" data-act="locate">' + icon("pin").replace("<svg", '<svg style="width:16px;height:16px"') + t("locate") +
+    '</button><span class="small muted" id="lmapInfo" data-kind="' + kind + '">' + esc(meInfo(kind)) + "</span></div>";
+}
+function loadLeaflet() {
+  if (!LMAP.loading) LMAP.loading = new Promise((ok, fail) => {
+    const css = document.createElement("link"); css.rel = "stylesheet"; css.href = LEAFLET + "leaflet.min.css"; document.head.appendChild(css);
+    const js = document.createElement("script"); js.src = LEAFLET + "leaflet.min.js";
+    js.onload = () => { LMAP.lib = window.L.noConflict(); ok(); };
+    js.onerror = fail;
+    document.head.appendChild(js);
+  });
+  return LMAP.loading;
+}
+function mapShops(kind) { return kind === "route" ? myShops().slice(0, 6) : data(curCo()).shops; }
+function fmtDist(m) { return m < 1000 ? d(Math.round(m)) + " " + t("mUnit") : d((m / 1000).toFixed(1)) + " " + t("kmUnit"); }
+function mountMap() {
+  clearInterval(LMAP.timer); LMAP.timer = null;
+  const slot = document.querySelector(".lmap-slot");
+  if (!slot) return;
+  if (!LMAP.lib) { loadLeaflet().then(mountMap, () => { LMAP.failed = true; render(); }); return; }
+  const Lf = LMAP.lib, kind = slot.dataset.kind;
+  if (!LMAP.el) { LMAP.el = document.createElement("div"); LMAP.el.className = "lmap"; }
+  slot.appendChild(LMAP.el);
+  if (!LMAP.map) {
+    LMAP.map = Lf.map(LMAP.el, { scrollWheelZoom: false });
+    Lf.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+      { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }).addTo(LMAP.map);
+    LMAP.shops = Lf.layerGroup().addTo(LMAP.map); LMAP.reps = Lf.layerGroup().addTo(LMAP.map); LMAP.me = Lf.layerGroup().addTo(LMAP.map);
+  }
+  LMAP.map.invalidateSize();
+  const key = [kind, S.co, S.lang, S.role, S.myExtra.length].join("|");
+  if (key !== LMAP.key) { LMAP.key = key; drawShops(kind); }
+  if (kind !== "route") { moveReps(); LMAP.timer = setInterval(moveReps, 2000); }
+}
+function drawShops(kind) {
+  const Lf = LMAP.lib, shops = mapShops(kind);
+  const done = myShops().filter(s => s.rep === ME.merch).map(s => s.id).concat(S.myExtra.map(v => v.shop));
+  LMAP.shops.clearLayers(); LMAP.reps.clearLayers(); LMAP.repMarks = {};
+  shops.forEach(s => {
+    const st = kind === "route" ? (done.includes(s.id) ? "pay" : "pending") : finalRec(s);
+    Lf.circleMarker(shopLL(s), { radius: 9, weight: 2, fillOpacity: 0.85, className: "lp-" + st })
+      .bindTooltip(esc(L(s)) + " · " + (kind === "route" ? t(st === "pay" ? "done" : "pendingV") : t(st)))
+      .on("click", () => {
+        if (kind === "route") { S.visit = { shop: s.id, file: null, ck: [false, false, false], stage: -1 }; go("newVisit"); }
+        else { S.view = "shops"; S.shop = s.id; S.frame = 0; S.sel = null; render(); }
+      })
+      .addTo(LMAP.shops);
+  });
+  LMAP.map.fitBounds(shops.map(shopLL), { padding: [30, 30], maxZoom: 15 });
+  drawMe(false);
+}
+/* Simulated merchandiser positions until the mobile app sends real GPS: each rep walks between their own
+   shops, 40 s per stop (20 s in the shop, 20 s on the road). */
+function repState(rep, shops) {
+  const mine = shops.filter(s => s.rep === rep); if (!mine.length) return null;
+  const u = (Date.now() / 40000 + rep * 1.3) % mine.length, k = Math.floor(u), f = u - k;
+  const a = shopLL(mine[k]), next = mine[(k + 1) % mine.length], b = shopLL(next);
+  if (f < 0.5 || mine.length === 1) return { ll: [a[0] + 0.00008 * Math.sin(u * 9), a[1] + 0.00008 * Math.cos(u * 7)], text: t("repAt", { s: L(mine[k]) }) };
+  const g = (f - 0.5) * 2;
+  return { ll: [a[0] + (b[0] - a[0]) * g, a[1] + (b[1] - a[1]) * g], text: t("repTo", { s: L(next) }) };
+}
+function moveReps() {
+  if (!LMAP.map || !document.querySelector(".lmap-slot")) return;
+  const Lf = LMAP.lib, shops = mapShops("team"), now = d(new Date().toTimeString().slice(0, 8));
+  REPS.forEach((r, i) => {
+    const st = repState(i, shops); if (!st) return;
+    if (!LMAP.repMarks[i]) LMAP.repMarks[i] = Lf.circleMarker(st.ll, { radius: 7, weight: 2, fillOpacity: 1, className: "lrep" })
+      .bindTooltip(esc(L(r).split(" ")[0]), { permanent: true, direction: "top", offset: [0, -8] }).addTo(LMAP.reps);
+    else LMAP.repMarks[i].setLatLng(st.ll);
+    const el = document.getElementById("repst-" + i); if (el) el.textContent = st.text;
+    const tm = document.getElementById("reptm-" + i); if (tm) tm.textContent = now;
+  });
+}
+/* "Show my location": the browser's real GPS (watchPosition), shown as a dot with its accuracy circle */
+function locate() {
+  if (!navigator.geolocation) { LMAP.err = true; meInfoUpdate(); return; }
+  if (LMAP.watch !== null) return;
+  LMAP.err = false; LMAP.busy = true; meInfoUpdate();
+  LMAP.watch = navigator.geolocation.watchPosition(p => {
+    const first = !LMAP.pos;
+    LMAP.pos = { ll: [p.coords.latitude, p.coords.longitude], acc: p.coords.accuracy, at: Date.now() };
+    LMAP.busy = false; drawMe(first); meInfoUpdate();
+  }, e => {
+    if (LMAP.pos && e.code === 3) return;  // a timeout after a fix: keep the last position
+    navigator.geolocation.clearWatch(LMAP.watch); LMAP.watch = null; LMAP.err = true; LMAP.busy = false; meInfoUpdate();
+  }, { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 });
+}
+function drawMe(fit) {
+  if (!LMAP.map || !LMAP.pos) return;
+  const Lf = LMAP.lib, p = LMAP.pos;
+  LMAP.me.clearLayers();
+  Lf.circle(p.ll, { radius: p.acc, weight: 1, fillOpacity: 0.12, className: "lacc", interactive: false }).addTo(LMAP.me);
+  Lf.circleMarker(p.ll, { radius: 8, weight: 3, fillOpacity: 1, className: "lme" })
+    .bindTooltip(t("you"), { permanent: true, direction: "top", offset: [0, -9] }).addTo(LMAP.me);
+  if (fit) LMAP.map.fitBounds(mapShops(LMAP.key.split("|")[0]).map(shopLL).concat([p.ll]), { padding: [30, 30], maxZoom: 16 });
+}
+function meInfo(kind) {
+  if (LMAP.err) return t("locOff");
+  if (!LMAP.pos) return LMAP.busy ? t("locating") : "";
+  const p = LMAP.pos; let best = null;
+  mapShops(kind).forEach(s => { const m = distM(p.ll, shopLL(s)); if (!best || m < best.m) best = { s, m }; });
+  return t("youAt", { lat: d(p.ll[0].toFixed(5)), lon: d(p.ll[1].toFixed(5)), acc: fmtDist(p.acc),
+    t: d(new Date(p.at).toTimeString().slice(0, 8)), dist: fmtDist(best.m), shop: L(best.s) });
+}
+function meInfoUpdate() { const el = document.getElementById("lmapInfo"); if (el) el.textContent = meInfo(el.dataset.kind); }
+/* GPS check-in: this device's real position if the browser allows it, else a demo point near the shop */
+function checkIn() {
+  const v = S.visit, shop = shopLL(data(curCo()).shops.find(s => s.id === v.shop));
+  const done = (ll, sim) => { v.gps = { lat: ll[0].toFixed(5), lon: ll[1].toFixed(5), m: distM(ll, shop), sim }; if (S.view === "newVisit") render(); };
+  const demo = () => done([shop[0] + (Math.random() - 0.5) * 0.0003, shop[1] + (Math.random() - 0.5) * 0.0003], true);
+  if (LMAP.pos && Date.now() - LMAP.pos.at < 30000) return done(LMAP.pos.ll, false);
+  if (!navigator.geolocation) return demo();
+  navigator.geolocation.getCurrentPosition(p => done([p.coords.latitude, p.coords.longitude], false), demo, { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 });
+}
 function leaderPanel(shops) {
   const rows = shops.map(s => ({ s, p: scoreParts(s) })).sort((a, b) => (b.p ? b.p.total : -1) - (a.p ? a.p.total : -1));
   return '<section class="panel"><header><h2>' + t("leader") + '</h2><span class="small muted">' + t("scoreD") + '</span></header><div class="leader">' +
@@ -1250,6 +1425,16 @@ function shopTable(shops, title) {
 VIEWS.shops = function () {
   if (S.shop) return auditView();
   return '<div class="pagehead"><div><h1>' + t("shops") + "</h1><p>" + esc(coName(curCo())) + "</p></div></div>" + shopTable(data(curCo()).shops);
+};
+VIEWS.liveMap = function () {
+  const shops = data(curCo()).shops;
+  const reps = REPS.map((r, i) => ({ r, i, st: repState(i, shops) })).filter(x => x.st);
+  const team = '<section class="panel"><header><h2>' + t("teamTitle") + '</h2><span class="chip plain">' + t("repSim") + "</span></header>" +
+    reps.map(({ r, i, st }) => '<div class="trow"><span class="dot"></span><div><strong>' + esc(L(r)) + '</strong><div class="small muted" id="repst-' + i + '">' + esc(st.text) +
+      '</div></div><span class="small mono muted" id="reptm-' + i + '">' + d(new Date().toTimeString().slice(0, 8)) + "</span></div>").join("") +
+    '<p class="small muted" style="margin:10px 0 0">' + t("trackNote") + "</p></section>";
+  return '<div class="pagehead"><div><h1>' + t("liveMap") + "</h1><p>" + t("liveMapP") + "</p></div></div>" +
+    '<section class="panel">' + mapTools("live") + mapSlot("live", mapSVG(shops)) + mapLegend() + "</section>" + team;
 };
 VIEWS.review = function () {
   const D = data(curCo()); const items = [];
@@ -1392,7 +1577,8 @@ VIEWS.today = function () {
     (S.queued ? '<span class="chip warn">' + t("queued", { n: d(S.queued) }) + "</span>" : "") + "</div>" +
     '<div class="kpis" style="grid-template-columns:repeat(4,minmax(0,1fr))"><div class="kpi"><span class="eyebrow">' + t("done") + '</span><span class="v" data-count="' + done + '">' + d(done) + '</span></div><div class="kpi"><span class="eyebrow">' + t("pendingV") + '</span><span class="v" data-count="' + (route.length - done) + '">' + d(route.length - done) + '</span></div><div class="kpi"><span class="eyebrow">' + t("beat") + '</span><span class="v" data-count="' + st.beat + '" data-suf="%">' + d(st.beat) + '%</span></div><div class="kpi"><span class="eyebrow">' + t("trust") + '</span><span class="v" data-count="' + st.trust + '" data-suf="%">' + d(st.trust) + "%</span></div></div>" +
     missions +
-    '<section class="panel"><header><h2>' + t("route") + '</h2></header><div class="route">' + stops + "</div></section>";
+    '<section class="panel"><header><h2>' + t("route") + '</h2></header><div class="route">' + stops + "</div></section>" +
+    '<section class="panel"><header><h2>' + t("routeMap") + "</h2></header>" + mapTools("route") + mapSlot("route", "") + "</section>";
 };
 VIEWS.newVisit = function () {
   const v = S.visit || (S.visit = { shop: myShops()[0].id, file: null, ck: [false, false, false], stage: -1 });
@@ -1419,7 +1605,7 @@ VIEWS.newVisit = function () {
     return '<div class="pagehead"><div><h1>' + t("newVisit") + "</h1><p>" + esc(L(sh)) + ' · <span class="mono">' + sh.fridge + '</span></p></div></div><section class="panel">' + body + "</section>";
   }
   const ready = v.file && v.ck.every(Boolean) && v.gps;
-  const gpsBlock = '<div><h3>' + t("checkin") + "</h3>" + (v.gps ? '<div class="gps ok">' + icon("pin") + t("checkinDone", { lat: d("23.8" + v.gps.lat), lon: d("90.36" + v.gps.lon), m: d(v.gps.m) }) + "</div>" :
+  const gpsBlock = '<div><h3>' + t("checkin") + "</h3>" + (v.gps ? '<div class="gps ' + (v.gps.m > 200 ? "far" : "ok") + '">' + icon("pin") + t(v.gps.m > 200 ? "checkinFar" : "checkinDone", { lat: d(v.gps.lat), lon: d(v.gps.lon), m: fmtDist(v.gps.m) }) + (v.gps.sim ? " · " + t("checkinSim") : "") + "</div>" :
     '<button class="btn" data-act="checkin">' + icon("pin").replace("<svg", '<svg style="width:16px;height:16px"') + t("checkinBtn") + "</button>") + '<div class="small muted" style="margin-top:4px">' + t("checkinNote") + "</div></div>";
   const offBlock = '<label class="ck"><input type="checkbox" id="voff" data-act="voff"' + (v.offline ? " checked" : "") + ">" + t("offline") + "</label>";
   return '<div class="pagehead"><div><h1>' + t("newVisit") + '</h1><p class="small">' + t("tipBlur") + "</p></div></div>" +
@@ -1572,7 +1758,8 @@ document.addEventListener("click", e => {
   if (a === "vsample") { S.visit.file = "fridge_01.mp4 · 6.4 s · 576×1024"; render(); return; }
   if (a === "vsubmit") { if (S.visit.offline) { S.visit.stage = -2; S.queued++; render(); } else runVisit(); return; }
   if (a === "upnow") { S.queued = Math.max(0, S.queued - 1); S.visit.offline = false; runVisit(); return; }
-  if (a === "checkin") { const r = Math.random; S.visit.gps = { lat: String(Math.floor(r() * 9000) + 1000), lon: String(Math.floor(r() * 900) + 100), m: 6 + Math.floor(r() * 20) }; render(); return; }
+  if (a === "checkin") { checkIn(); return; }
+  if (a === "locate") { locate(); return; }
   if (a === "mkact") {
     const s = data(curCo()).shops.find(x => x.id === v); const f = el.dataset.f ? s.f.find(x => x.id === el.dataset.f) : null;
     const act = actionFor(s, f); actions().push(act);
@@ -1588,7 +1775,7 @@ document.addEventListener("click", e => {
 document.addEventListener("change", e => {
   const el = e.target; const a = el.dataset && el.dataset.act; if (!a) return;
   if (a === "co") { S.co = el.value; S.shop = null; S.sel = null; render(); return; }
-  if (a === "vshop") { S.visit.shop = el.value; render(); return; }
+  if (a === "vshop") { S.visit.shop = el.value; S.visit.gps = null; render(); return; }
   if (a === "vfile") { const f = el.files && el.files[0]; if (f) { S.visit.file = f.name + " · " + (f.size / 1048576).toFixed(1) + " MB"; render(); } return; }
   if (a === "vck") { S.visit.ck[+el.dataset.v] = el.checked; render(); return; }
   if (a === "voff") { S.visit.offline = el.checked; render(); return; }
@@ -1639,6 +1826,7 @@ const h = (location.hash || "").replace("#", "");
 if (h === "merchandiser") S.role = "merch"; else if (h === "auditor") S.role = "auditor"; else if (h === "admin") S.role = "admin";
 if (S.role) S.view = NAV[S.role][0][0];
 if (h === "evidence") { S.role = "auditor"; S.view = "shops"; S.shop = S.co + "-1"; S.frame = 1; S.sel = "f1"; }
+if (h === "livemap") { S.role = "auditor"; S.view = "liveMap"; }
 render();
 })();
 </script>
