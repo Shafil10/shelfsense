@@ -66,6 +66,19 @@ Weights (`*.pt`) are shared through Google Drive, not Git.
 (http://localhost:8000, works offline). After editing it, run `python scripts/build_mockup_site.py`
 and copy `app/mockup/site/index.html` to the `gh-pages` branch to update the live site.
 
+## AI assistant (free, local)
+"Ask about this audit" uses a free open-source language model on the demo PC through
+[Ollama](https://ollama.com), so no API key or internet is needed and audit data stays on the PC.
+1. Unpack the Ollama Windows zip to `E:\tools\ollama` and set `OLLAMA_MODELS=E:\ollama\models`.
+2. Double-click `start_assistant.bat`, then once: `E:\tools\ollama\ollama.exe pull gemma3:4b`
+   (chosen model: 29/30 checks on real audits, about 10 s per answer on the GTX 1650)
+3. Ask from the command line or from the dashboard's audit view (open it via `start_dashboard.bat`):
+```
+python -m src.assistant.ask --audit data/reports/VID-20261018-WA0061/audit.json "Why is this audit flagged?"
+python scripts/eval_assistant.py --models qwen2.5:3b gemma3:4b qwen2.5:1.5b   # compare models
+```
+The assistant only explains: payments stay with the rules and the auditor.
+
 ## Data
 Large files (videos, frames, datasets) are not stored in Git. Keep them in
 `data/` locally and share through Google Drive. SKU-110K is for academic, non-commercial

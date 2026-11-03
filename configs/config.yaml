@@ -57,6 +57,13 @@ categories:                # product categories in scope
   - biscuits_and_snacks
   - beverages
 
+assistant:                 # "Ask about this audit" (src/assistant/ask.py): free local model via Ollama
+  url: http://localhost:11434
+  model: gemma3:4b         # chosen by scripts/eval_assistant.py (all facts right, no invented data); see data/results/assistant_eval.json
+  num_ctx: 8192            # audit data + question; a 30-keyframe audit is about 3k tokens
+  max_tokens: 300          # stops repetition loops (a Bangla answer looped for 5 min without a cap)
+  timeout_sec: 120
+
 kpis:
   - out_of_stock
   - share_of_shelf

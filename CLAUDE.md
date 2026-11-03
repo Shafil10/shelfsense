@@ -10,7 +10,13 @@ Capstone project for **CSE499A Senior Design I**, North South University, Fall 2
 | Shafil Ahmed | 2231927042 | shafil.ahmed@northsouth.edu |
 | Rutaba Adiba Rahman | 2231975042 | rutaba.rahman@northsouth.edu |
 
+Course instructor: **Dr. Shafin Rahman** (NSU).
+
 GitHub repo: https://github.com/Shafil10/shelfsense
+
+NutriCoco documents (2026-11-03): NDA https://claude.ai/artifact/HY7ty6u2xfkz2bmCTPnAWs (Word copy in
+`docs/legal/`, gitignored), requirements questionnaire https://claude.ai/artifact/VGQsG3q4R2KVDsRiphiB2b.
+When NutriCoco's answers come back: write a requirements summary for them to approve.
 
 ## What the project does
 Assigned topic: *video understanding with VLMs*. Application: a field merchandiser records a
@@ -227,10 +233,38 @@ or on Kaggle with the notebook. Settings in `configs/config.yaml` (`detection`, 
   from the `gh-pages` branch): https://shafil10.github.io/shelfsense/ ; NutriCoco details shown publicly
   with the user's OK (2026-11-01).
 
+## AI assistant ("Ask about this audit", 2026-11-03)
+- The dashboard's "ShelfSense Assistant" alerts are plain if-then rules (no AI). The AI chat is separate:
+  a **free local language model via Ollama** (no API key, no internet, client data stays on the PC).
+- Ollama v0.40.7 portable zip in `E:\tools\ollama` (not the installer: it writes to C:). Models in
+  `E:\ollama\models`; `USERPROFILE`/`HOME` pointed at `E:\ollama\home` so its key/history are not on C:.
+  Start: `start_assistant.bat` (port 11434, localhost only), then `start_dashboard.bat`.
+- `src/assistant/ask.py`: sends a compact `audit.json` (no boxes/hashes) + strict rules (only this data,
+  cite keyframe/check, say "not in the data", never decide payments, answer in the question's language).
+  Settings in `configs/config.yaml` (`assistant`). `scripts/eval_assistant.py`: same 10 questions (6 EN,
+  4 BN) on 3 real audits per model, keyword checks fact / refuse / defer + Bangla-script check ->
+  `data/results/assistant_eval.json` (prompt 1 kept as `assistant_eval_prompt1.json`). Answers capped at
+  300 tokens (`max_tokens`): qwen2.5:3b looped for 5 min on a Bangla question without a cap.
+- **Results (2026-11-03, read by hand too):** prompt 1: gemma3:4b 25/30 (facts 15/15, but skipped "the
+  auditor decides" 5/6 times, Bangla answered in English 11/12), qwen2.5:3b 24/30 (wrong counts, garbled
+  Bangla), qwen2.5:1.5b 19/30 (said "hold the payment", "no products out of stock"). Prompt 2 (fixed
+  closing sentence for payment questions, "answer only in Bangla" appended to Bangla questions):
+  **gemma3:4b 29/30** (one wrong count; Bangla answers keep English keyframe citations), median 11 s/answer;
+  qwen2.5:3b 22/30 and qwen2.5:1.5b 22/30 (3 s, still garbled Bangla verdicts, still claim "nothing out
+  of stock"). Chosen: **gemma3:4b**. Quirk: it sometimes adds the payment sentence unasked, in English.
+- Dashboard: panel in the auditor's audit view sends `reportJSON(s)` to Ollama from the browser. Works when
+  the page is opened from localhost (Ollama allows localhost origins); on GitHub Pages it shows a note
+  that the assistant runs only on the demo PC.
+
 ## The E: PC (second machine, differs from the laptop above)
-i7-8565U, 20 GB RAM, **GTX 1650 Max-Q 4 GB (CUDA)**, C: nearly full -> everything goes on E:
-(`.venv` Python 3.12 with torch 2.11+cu128, pip cache `E:\pip-cache`, HF models `E:\hf-cache`, datasets,
-runs). Lessons:
+i7-8565U, 20 GB RAM, **GTX 1650 Max-Q 4 GB (CUDA)**. **Rule from the user: nothing of this project on C:,
+ever** (downloads, installs, caches, models, temp outputs) -> everything goes on E:
+(`.venv` Python 3.12 with torch 2.11+cu128, datasets, runs, tools in `E:\tools`). User environment
+variables set 2026-11-03 so tools default to E: (new processes only; restart VS Code to pick them up):
+`PIP_CACHE_DIR=E:\pip-cache`, `HF_HOME=E:\hf-cache`, `OLLAMA_MODELS=E:\ollama\models`,
+`TECTONIC_CACHE_DIR=E:\tools\tectonic-cache`, `YOLO_CONFIG_DIR=E:\tools\ultralytics-config`,
+`MPLCONFIGDIR=E:\tools\matplotlib`, `TORCH_HOME=E:\torch-cache`. Use portable zips over installers
+(installers default to C:). Before installing anything, check where it writes. Lessons:
 - GPU memory: batch 2 at 1024 px (3 GB). Batch 4 hit 4.8 GB on dense images and spilled into shared
   memory (2.7x slower); batch 8 needs 7.5 GB. AMP is auto-disabled on GTX 16xx (fp32).
 - Windows commit memory: each data-loader worker holds its own torch + CUDA (~1 GB) and validation uses
