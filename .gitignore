@@ -34,3 +34,5 @@ docs/weekly_reports/preview.pdf
 docs/weekly_reports/preview4.pdf
 # shows an SKU-110K photo (no redistribution): copy from data/results/figures/ for Overleaf only
 docs/weekly_reports/figures/count_outliers.jpg
+# signed agreements and client forms (contain client details)
+docs/legal/

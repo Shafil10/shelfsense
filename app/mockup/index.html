@@ -215,6 +215,11 @@ svg.fridge { width: 100%; max-width: 340px; height: auto; display: block; margin
 /* assistant alerts */
 .assistant { background: linear-gradient(135deg, var(--accent-soft), var(--surface) 60%); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
 .assistant h2 { display: flex; align-items: center; gap: 8px; }
+.askform { display: flex; gap: 8px; margin-top: 4px; }
+.askform input { flex: 1; min-width: 0; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--surface); color: inherit; font: inherit; }
+.askans { margin-top: 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--accent-soft); white-space: pre-wrap; }
+.askans p { margin: 0; }
+.askans p + p { margin-top: 8px; }
 .spark { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--on-accent); box-shadow: 0 0 16px var(--glow); }
 .spark svg { width: 16px; height: 16px; animation: twinkle 3s ease-in-out infinite; }
 @keyframes twinkle { 50% { transform: scale(.85) rotate(15deg); opacity: .8; } }
@@ -570,6 +575,11 @@ const TX = {
     payTotal: "Paid to {n} shops", payHeld: "On hold · {n} shops", payWait: "Waiting for review · {n}",
     actions: "Actions", actionsP: "Corrective actions turn findings into work. The merchandiser fixes the problem and films the fridge again as proof.",
     assistant: "ShelfSense Assistant", assistantD: "Rule-based alerts from the latest audits", open: "Open",
+    askTitle: "Ask about this audit", askD: "Free AI model running on this computer (Qwen2.5-3B via Ollama). It only sees this audit's data and never decides payments.",
+    askPh: "e.g. Why is this shop on hold? Which keyframe shows the problem?", askBtn: "Ask", askBusy: "Thinking… (a few seconds on the GPU, longer on a laptop CPU)",
+    askOff: "The AI assistant is not running. Start it with start_assistant.bat on the demo PC, then ask again.",
+    askPages: "The AI assistant runs only on the team's demo PC (it is a local model), not on this public website.",
+    askNote: "AI answer from this audit's data only. Check the cited keyframe before acting.",
     in_money: "৳{a} of this month's shop payments is on hold at {n} shops.",
     in_trust: "{r}'s trust is {n}%: {f} of their videos failed integrity checks. Send someone else to re-check their shops.",
     in_short: "{r} spends only {n} min per shop on average. Very short visits can mean rushed or faked videos.",
@@ -651,6 +661,11 @@ const TX = {
     payTotal: "{n}টি দোকানে মোট", payHeld: "স্থগিত · {n}টি দোকান", payWait: "যাচাইয়ের অপেক্ষায় · {n}",
     actions: "করণীয়", actionsP: "সংশোধনী কাজ ফলাফলকে কাজে রূপ দেয়। মার্চেন্ডাইজার সমস্যা ঠিক করে প্রমাণ হিসেবে আবার ফ্রিজের ভিডিও করেন।",
     assistant: "ShelfSense সহকারী", assistantD: "সর্বশেষ অডিট থেকে নিয়মভিত্তিক সতর্কতা", open: "খুলুন",
+    askTitle: "এই অডিট সম্পর্কে জিজ্ঞেস করুন", askD: "এই কম্পিউটারে চলা বিনামূল্যের AI মডেল (Ollama-তে Qwen2.5-3B)। এটি শুধু এই অডিটের তথ্য দেখে এবং কখনো টাকা দেওয়ার সিদ্ধান্ত নেয় না।",
+    askPh: "যেমন: দোকানটির টাকা কেন আটকে আছে? কোন কী-ফ্রেমে সমস্যা দেখা যায়?", askBtn: "জিজ্ঞেস করুন", askBusy: "ভাবছে… (GPU-তে কয়েক সেকেন্ড, ল্যাপটপের CPU-তে বেশি সময়)",
+    askOff: "AI সহকারী চালু নেই। ডেমো কম্পিউটারে start_assistant.bat দিয়ে চালু করে আবার জিজ্ঞেস করুন।",
+    askPages: "AI সহকারী শুধু দলের ডেমো কম্পিউটারে চলে (এটি একটি লোকাল মডেল), এই পাবলিক ওয়েবসাইটে নয়।",
+    askNote: "শুধু এই অডিটের তথ্য থেকে AI-এর উত্তর। কিছু করার আগে উল্লেখ করা কী-ফ্রেম যাচাই করুন।",
     in_money: "এ মাসের দোকান পেমেন্টের ৳{a} {n}টি দোকানে স্থগিত আছে।",
     in_trust: "{r}-এর আস্থা {n}%: তাঁর {f}টি ভিডিও সত্যতা যাচাইয়ে ব্যর্থ। তাঁর দোকানগুলো অন্য কাউকে দিয়ে আবার যাচাই করান।",
     in_short: "{r} প্রতি দোকানে গড়ে মাত্র {n} মিনিট থাকেন। খুব ছোট ভিজিট মানে তাড়াহুড়ো বা ভুয়া ভিডিও হতে পারে।",
@@ -679,7 +694,7 @@ const TX = {
 const S = {
   role: null, lang: "en", co: "nutricoco", view: "", device: "web",
   shop: null, frame: 0, sel: null, threshold: 0.85, showVerdict: true, fps: 4,
-  decisions: {}, finals: {}, log: [], visit: null, myExtra: [], actions: {}, queued: 0,
+  decisions: {}, finals: {}, log: [], visit: null, myExtra: [], actions: {}, queued: 0, ask: {},
   companies: COMPANIES.slice(),
   users: [
     { name: "Rahim Uddin", role: "merch", co: "coke" }, { name: "Jamal Hossain", role: "merch", co: "coke" },
@@ -1313,7 +1328,45 @@ function auditView() {
     '<div class="grid-ev"><section class="panel"><header><h2>' + t("evidence") + '</h2><span class="small muted mono">' + d(frames.length) + " " + t("frames") + "</span></header>" + fridgeSVG(s, { frame: S.frame, sel: S.sel }) + strip + "</section>" +
     '<section class="panel"><header><h2>' + t("findings") + "</h2></header>" + fl + "</section></div>" +
     '<section class="panel"><header><h2>' + t("integrity") + "</h2></header><div class=\"checks\">" + checks + "</div></section>" +
+    askPanel(s) +
     '<section class="panel stampwrap"><div><div class="eyebrow">' + t("aiSuggests") + '</div><div style="margin-top:10px"><span class="stamp ' + sug + '">' + t(sug) + '</span></div></div><div><div class="eyebrow" style="margin-bottom:8px">' + t("decision") + '</div><div class="decide">' + decide + "</div></div></section>";
+}
+
+/* ---------- "Ask about this audit": free local model (Ollama) that only sees reportJSON(s) ---------- */
+const ASSIST = { url: "http://localhost:11434", model: "gemma3:4b" };
+const ASSIST_RULES = "You are the ShelfSense audit assistant. You help a human auditor understand ONE shelf audit.\n" +
+  "Rules:\n1. Use ONLY the audit data given below. Do not use outside knowledge about shops, brands or products.\n" +
+  "2. When you state a fact, cite where it comes from: a keyframe time (for example \"keyframe at 4.0 s\"), a finding or an integrity check.\n" +
+  "3. If the data does not contain the answer, say exactly that the audit data does not show it. Never guess, never invent numbers, brands or prices.\n" +
+  "4. You do not decide payments. If asked whether to pay, hold or re-audit, report the recommendation and its reasons, then end with: \"The payment decision is the auditor's.\" (In Bangla: \"টাকা দেওয়ার সিদ্ধান্ত অডিটরের।\")\n" +
+  "5. Answer in the same language as the question (English or Bangla). Keep answers short: 1-5 sentences.";
+const localPage = () => /^(localhost|127\.0\.0\.1|\d+\.\d+\.\d+\.\d+)$/.test(location.hostname) || location.protocol === "file:";
+
+function askPanel(s) {
+  const st = S.ask[s.id] || {};
+  const body = !localPage() ? '<p class="small muted">' + t("askPages") + "</p>" :
+    '<form class="askform" data-form="ask" data-v="' + s.id + '"><input id="askq" type="text" maxlength="300" placeholder="' + esc(t("askPh")) + '" value="' + esc(st.q || "") + '"' + (st.busy ? " disabled" : "") + '><button class="btn" type="submit"' + (st.busy ? " disabled" : "") + ">" + t("askBtn") + "</button></form>" +
+    (st.busy ? '<p class="small muted">' + t("askBusy") + "</p>" : "") +
+    (st.err ? '<p class="small">' + t("askOff") + "</p>" : "") +
+    (st.a ? '<div class="askans"><p>' + esc(st.a) + '</p><p class="small muted">' + t("askNote") + " · " + esc(st.model) + " · " + d(st.sec) + " s</p></div>" : "");
+  return '<section class="panel"><header><h2>' + t("askTitle") + '</h2><span class="small muted">' + t("askD") + "</span></header>" + body + "</section>";
+}
+
+async function askAudit(id, q) {
+  const s = data(curCo()).shops.find(x => x.id === id);
+  S.ask[id] = { q, busy: true }; render();
+  const t0 = performance.now();
+  try {
+    const r = await fetch(ASSIST.url + "/api/chat", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: ASSIST.model, stream: false, options: { temperature: 0, num_ctx: 8192, num_predict: 300 },
+        messages: [{ role: "system", content: ASSIST_RULES }, { role: "user", content: "Audit data (JSON):\n" + reportJSON(s) + "\n\nQuestion: " + q + (/[ঀ-৿]/.test(q) ? "\n\nউত্তর শুধু বাংলায় দিন। (Answer only in Bangla.)" : "") }] }) });
+    if (!r.ok) throw new Error(r.status);
+    const j = await r.json();
+    S.ask[id] = { q, a: j.message.content.trim(), model: ASSIST.model, sec: ((performance.now() - t0) / 1000).toFixed(1) };
+  } catch (e) {
+    S.ask[id] = { q, err: true };
+  }
+  if (S.shop === id) render();
 }
 
 /* ---------- merchandiser ---------- */
@@ -1552,6 +1605,11 @@ document.addEventListener("input", e => {
 document.addEventListener("submit", e => {
   e.preventDefault();
   const form = e.target.dataset.form;
+  if (form === "ask") {
+    const q = document.getElementById("askq").value.trim();
+    if (q && !(S.ask[e.target.dataset.v] || {}).busy) askAudit(e.target.dataset.v, q);
+    return;
+  }
   if (form === "co") {
     const name = document.getElementById("nCo").value.trim(); const brands = document.getElementById("nBr").value.split(",").map(x => x.trim()).filter(Boolean);
     if (!name || !brands.length) return;
