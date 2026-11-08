@@ -100,6 +100,39 @@ def reuse_check(video_name, hashes, reports_dir, max_distance, min_share):
     return sorted(matches, key=lambda m: -int(m["matching_keyframes"].split("/")[0]))
 
 
+def reuse_check_local(video_name, hashes, new_frames, reports_dir, rep):
+    """Second re-use check for copies the pHash misses (cropped / zoomed): local features + pixel check after
+    alignment (src/report/reuse.py). To stay at a few seconds per video it runs only on the rep["orb_candidates"]
+    earlier audits whose keyframe pHashes are closest (a cropped copy is still nearer than unrelated videos),
+    with 3 keyframes of this video and up to 5 of each candidate."""
+    from src.report.reuse import best_matches, prepare, same_picture
+    if not new_frames or not hashes:
+        return []
+    mine = [imagehash.hex_to_hash(h) for h in hashes]
+    ranked = []
+    for report in Path(reports_dir).glob("*/audit.json"):
+        old = json.loads(report.read_text(encoding="utf-8"))
+        if old["video"]["file"] == video_name or not old["keyframes"]:
+            continue
+        theirs = [imagehash.hex_to_hash(k["phash"]) for k in old["keyframes"]]
+        d = statistics.median(min(a - b for b in theirs) for a in mine)
+        if d <= rep["orb_max_phash_distance"]:  # unrelated videos are far away: no need to look closer
+            ranked.append((d, report, old))
+    pick = lambda xs, n: [xs[round(i * (len(xs) - 1) / max(n - 1, 1))] for i in range(min(n, len(xs)))]  # noqa: E731
+    new = [prepare(f) for f in pick(new_frames, 3)]
+    matches = []
+    for _, report, old in sorted(ranked, key=lambda r: r[0])[:rep["orb_candidates"]]:
+        files = [report.parent / "frames" / Path(old["video"]["file"]).stem / k["frame"] for k in old["keyframes"]]
+        frames = [cv2.imread(str(f)) for f in pick([f for f in files if f.exists()], 5)]
+        if not frames:
+            continue
+        hits = sum(same_picture(m, rep) for m in best_matches(new, [prepare(f) for f in frames if f is not None]))
+        if hits / len(new) >= rep["reuse_min_share"]:
+            matches.append({"video": old["video"]["file"], "sha256": old["video"]["sha256"],
+                            "matching_keyframes": f"{hits}/{len(new)}", "method": "local features (cropped or resized copy)"})
+    return matches
+
+
 def longest_blur_gap(log_rows):
     """Longest run of consecutive sampled frames dropped as blurry, in seconds of video."""
     best, start = 0.0, None
@@ -143,9 +176,10 @@ def audit(video, weights, full, device="cpu", reports_dir=REPORTS):
     log_rows = list(csv.DictReader(open(frame_dir / "frames_log.csv", encoding="utf-8")))
 
     model = YOLO(weights)
-    keyframes = []
+    keyframes, kept_frames = [], []
     for r in (r for r in log_rows if r["status"] == "kept"):
         frame = cv2.imread(str(frame_dir / r["file"]))
+        kept_frames.append(frame)
         res = model.predict(frame, imgsz=full["sku110k"]["img_size"], conf=det["count_conf"],
                             max_det=det["max_det"], device=device, verbose=False)[0]
         boxes = [tuple(round(v, 1) for v in b) for b in res.boxes.xyxy.tolist()]
@@ -166,6 +200,8 @@ def audit(video, weights, full, device="cpu", reports_dir=REPORTS):
     counts = [k["products"] for k in keyframes]
     reuse = reuse_check(video.name, [k["phash"] for k in keyframes], reports_dir,
                         rep["reuse_hash_distance"], rep["reuse_min_share"])
+    if not reuse:  # the quick pHash check found nothing: look for cropped or resized copies
+        reuse = reuse_check_local(video.name, [k["phash"] for k in keyframes], kept_frames, reports_dir, rep)
     blur_gap = longest_blur_gap(log_rows)
     flags = []
     if reuse:

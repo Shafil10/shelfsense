@@ -21,6 +21,11 @@ report:                    # Sprint 5 audit report (src/report/audit.py)
   reuse_hash_distance: 4   # keyframe pHash distance <= this = same picture as in an earlier audit
   reuse_min_share: 0.5     # flag re-used footage if this share of keyframes match one earlier audit
   max_blur_gap_sec: 2.0    # warn if a longer stretch of the video is lost to blur
+  orb_min_inliers: 40      # local-feature re-use check (src/report/reuse.py), set with scripts/eval_reuse.py:
+  orb_max_reproj_px: 2.0   # copies (re-encoded, 10% crop, half size) correlate 0.994-1.0 after alignment;
+  orb_min_ncc: 0.98        # honest re-filming of the same shelf reached 0.964 on single keyframes
+  orb_candidates: 5        # local-feature check only on the earlier audits with the closest pHashes (speed):
+  orb_max_phash_distance: 18  # 10% crops were 10-14 from their original (rank 1-2 of 124), unrelated videos >= 22
 
 sku110k:                   # Sprint 4 baseline detector (src/detection/)
   archive: datasets/SKU110K_fixed.tar.gz

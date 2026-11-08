@@ -18,7 +18,8 @@ Status of the targets set in Weekly Report 4:
   \item \textbf{First KPI checks with evidence --- Partly done.} The paid-placement check against each
   shop's agreement is implemented and tested (Section~\ref{sec:r5-ai}); it switches on as soon as the
   detector knows NutriCoco's cups. Brand reading on crops is not yet in the audit pipeline.
-  \item \textbf{Re-use check robust to cropping --- Not done}, moved to next week.
+  \item \textbf{Re-use check robust to cropping --- Done.} All 10\%-cropped copies are now caught and
+  no honest re-recording of the same shelf is flagged (Section~\ref{sec:r5-reuse}).
 \end{enumerate}
 
 \subsection{Work narrative of the current week}
@@ -92,6 +93,37 @@ the re-use check found them. The phone video showed a person in a room, not a sh
 0--1 ``products'' per frame (once a face) and the audit asked for a review. Every video is now also
 checked for \emph{where} and \emph{when} it was filmed: more than 200\,m from the shop gives a warning,
 more than 1\,km a re-audit, and a video recorded more than 6\,h before it was sent a warning.
+
+\subsubsection{Re-used footage that is cropped or resized}\label{sec:r5-reuse}
+The keyframe pHash of Report~4 caught re-encoded and half-size copies but missed a 10\% crop. A second
+check now matches ORB keypoints between keyframes, fits a homography with RANSAC and warps the old
+keyframe onto the new one. Matching points alone cannot decide, because riders honestly film the same
+shelf again; the decision therefore uses the pixel correlation after alignment, which is almost 1 only
+for a copy. We tested it on altered copies of three test videos (positives) and on all 24 pairs of
+neighbouring test clips, which were filmed minutes apart and often show the same shelf (negatives).
+Copies correlated 0.994--1.000 after alignment; honest re-recordings reached at most 0.964 on single
+keyframes, so the threshold is 0.98 (Table~\ref{tab:r5-reuse}). To keep the audit fast, the check runs
+only when the pHash finds nothing and only on the five earlier audits with the closest pHashes (the
+original ranked first or second of 124 for every crop): an audit with a cropped copy takes 4.5\,s, an
+honest one 2.3--2.5\,s as before.
+
+\begin{table}[!t]
+\centering
+\caption{Re-use check on altered copies and honest neighbouring clips (keyframes or videos flagged).}
+\label{tab:r5-reuse}
+\begin{tabular}{lcc}
+\hline
+ & pHash only (Report 4) & pHash + local features \\
+\hline
+Re-encoded copies (3 videos) & 3 / 3 & 3 / 3 \\
+Half-size copies (3 videos) & 3 / 3 & 3 / 3 \\
+10\% cropped copies (3 videos) & 0 / 3 & 3 / 3 \\
+Copied keyframes recognised & --- & 88 / 90 \\
+Honest neighbouring clips flagged (24 pairs) & 0 / 24 & 0 / 24 \\
+Honest keyframes flagged & --- & 0 / 255 \\
+\hline
+\end{tabular}
+\end{table}
 
 \subsubsection{Delivery tracking}
 While the app is open, the phone sends a GPS point every 15\,s or 30\,m. A rider is checked in when
@@ -176,7 +208,8 @@ map with shops, their check-in circles and the check-in feed (sample data).}
   \item Pilot ride in Mirpur~10/11 with a team member's phone: measure check-in accuracy, false visits
   and the km against the motorcycle's odometer.
   \item Carried over: correct the 222 keyframes in Roboflow and fine-tune the shelf detector.
-  \item Carried over: re-use check robust to cropping (local feature matching).
+  \item Test the re-use check on a real case: the same fridge filmed on two different days by a team
+  member, and an old video of it cropped on a phone.
 \end{enumerate}
 
 \subsection{Individual contribution}
@@ -193,6 +226,7 @@ Server, login and tracking & \TODO{member} & geofence check-in/out \\
 Rider app and offline outbox & \TODO{member} & English / Bangla \\
 Office screens and reseller page & \TODO{member} & orders, stock, POs \\
 Agreement check and training script & \TODO{member} & waits for photos \\
+Re-use check for cropped copies & \TODO{member} & 9/9 copies, 0/24 false \\
 Testing on phones & \TODO{member} & 4K video, live location \\
 \hline
 \end{tabular}
