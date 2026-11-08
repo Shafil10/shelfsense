@@ -14,6 +14,8 @@ import pytest
 from src.server import app
 
 CFG = {"server": {"max_upload_mb": 1, "location_ttl_sec": 600, "device": "cpu"},
+       "tracking": {"geofence_radius_m": 80, "checkout_factor": 1.5, "gps_max_accuracy_m": 50, "min_step_m": 10,
+                    "max_speed_kmh": 90, "fuel": {"km_per_litre": 40, "price_per_litre_tk": 130}},
        "assistant": {"url": "http://localhost:1", "model": "m", "num_ctx": 512, "timeout_sec": 1}}
 
 
@@ -31,7 +33,8 @@ def server(tmp_path):
     (site / "index.html").write_text("dashboard")
     (tmp_path / "reports" / "old").mkdir(parents=True)
     (tmp_path / "reports" / "old" / "e.jpg").write_bytes(b"jpg")
-    store = app.Store(CFG, tmp_path / "uploads", tmp_path / "reports", run_audit=fake_audit)
+    store = app.Store(CFG, tmp_path / "uploads", tmp_path / "reports", run_audit=fake_audit, db_path=tmp_path / "t.db")
+    store.seed_demo()
     srv = ThreadingHTTPServer(("127.0.0.1", 0), app.make_handler(store, site))
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     yield f"http://127.0.0.1:{srv.server_address[1]}", tmp_path
@@ -87,12 +90,41 @@ def test_upload_rejects_non_video_and_too_large(server):
     assert not list((base_tmp := server[1] / "uploads").glob("*.mp4")), base_tmp
 
 
-def test_locations(server):
+def post(url, obj):
+    return call(url, json.dumps(obj).encode())
+
+
+def test_gps_pings_make_visits_and_routes(server):
     base, _ = server
-    assert call(f"{base}/api/locations", json.dumps({"rep": "Rahim", "lat": 23.81, "lon": 90.37, "acc": 9}).encode())[0] == 200
-    assert call(f"{base}/api/locations", json.dumps({"rep": "x", "lat": 999, "lon": 0}).encode())[0] == 400
+    _, staff = call(f"{base}/api/staff")
+    _, shops = call(f"{base}/api/shops")
+    rahim, shop = staff[[s["name"] for s in staff].index("Rahim Uddin")]["id"], shops[0]
+    code, r = post(f"{base}/api/locations", {"staff_id": rahim, "lat": shop["lat"], "lon": shop["lon"], "acc": 8})
+    assert code == 200 and [e["kind"] for e in r["events"]] == ["check_in"]
+    assert post(f"{base}/api/locations", {"staff_id": rahim, "lat": 999, "lon": 0})[0] == 400
+    assert post(f"{base}/api/locations", {"staff_id": 999, "lat": 23.8, "lon": 90.3})[0] == 400
     _, locs = call(f"{base}/api/locations")
-    assert [(p["rep"], p["lat"]) for p in locs] == [("Rahim", 23.81)]
+    assert [(p["name"], p["lat"]) for p in locs] == [("Rahim Uddin", shop["lat"])]
+    _, visits = call(f"{base}/api/visits")
+    assert [(v["staff"], v["shop"], v["check_out"]) for v in visits] == [("Rahim Uddin", shop["name"], None)]
+    _, routes = call(f"{base}/api/routes")
+    assert {r["name"]: r["visits"] for r in routes}["Rahim Uddin"] == 1
+    _, events = call(f"{base}/api/events?after=0")
+    assert events[0]["kind"] == "check_in"
+
+
+def test_shops_and_changeable_agreement(server):
+    base, _ = server
+    _, shops = call(f"{base}/api/shops")
+    assert len(shops) == 6 and shops[0]["agreement"]["cups"] == 4
+    code, r = post(f"{base}/api/shops", {"name": "New Shop", "lat": 23.81, "lon": 90.37, "area": "Mirpur 10"})
+    assert code == 201
+    assert post(f"{base}/api/shops/{r['id']}/agreement", {"cups": 8, "shelf": 1, "zone": "front", "by": "NutriCoco"})[0] == 201
+    assert post(f"{base}/api/shops/{r['id']}/agreement", {"cups": -2})[0] == 400
+    assert post(f"{base}/api/shops/9999/agreement", {"cups": 2})[0] == 400
+    _, shops = call(f"{base}/api/shops")
+    new = next(s for s in shops if s["name"] == "New Shop")
+    assert (new["agreement"]["cups"], new["agreement"]["shelf"], new["agreement"]["created_by"]) == (8, 1, "NutriCoco")
 
 
 def test_static_files_and_no_path_escape(server):

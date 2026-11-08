@@ -4,7 +4,8 @@ One small server (Python's built-in http.server, nothing to install) that:
   - serves the dashboard (app/mockup/site/) and the evidence images of every audit (data/reports/),
   - receives a shelf video from a phone, saves it in data/uploads/ and runs the real audit pipeline
     (src/report/audit.py: keyframes, detector, integrity checks) in a background worker, one video at a time,
-  - keeps the merchandisers' last GPS positions in memory for the live map,
+  - stores field staff GPS pings, turns them into shop visits (geofence check-in/out) and daily routes
+    (time, km, fuel) and keeps each shop's changeable agreement (src/server/db.py, SQLite),
   - answers "Ask about this audit" questions through the local AI (src/assistant/ask.py), so phones never
     talk to Ollama directly.
 
@@ -13,12 +14,18 @@ API (JSON unless noted):
        -> {"id", "status": "queued"}
   GET  /api/audits            -> uploads, newest first: id, status, shop, rep, received, verdict
   GET  /api/audits/<id>       -> upload metadata + status + the audit report when done
-  POST /api/locations         {"rep", "lat", "lon", "acc"} -> {"ok": true}
-  GET  /api/locations         -> positions newer than server.location_ttl_sec
   POST /api/ask               {"id", "question"} -> {"answer", "seconds", "model"}
+  GET  /api/shops             -> shops with their current agreement
+  POST /api/shops             {"name", "lat", "lon", "area"?, "channel"?, "radius_m"?} -> {"id"}
+  POST /api/shops/<id>/agreement  {"cups", "shelf"?, "zone"?, "daily_fee_tk"?, "note"?, "by"?} -> {"id"}
+  GET  /api/staff             POST /api/staff {"name", "phone"?} -> {"id"}
+  POST /api/locations         {"staff_id", "lat", "lon", "acc"?} -> {"ok", "events": [check_in / check_out]}
+  GET  /api/locations         -> each staff member's last position (newer than server.location_ttl_sec)
+  GET  /api/visits?day=YYYY-MM-DD&staff_id=..   GET /api/routes?day=..   GET /api/events?after=<id>
 
 Usage (project root, venv active; Ollama running for /api/ask):
   python -m src.server.app              # http://localhost:8000 on this PC, http://<PC IPv4>:8000 on the Wi-Fi
+  python -m src.server.app --seed-demo  # first run: add NutriCoco's sample shops and staff (marked sample)
 """
 import argparse
 import json
@@ -26,7 +33,6 @@ import os
 import queue
 import re
 import threading
-import time
 import urllib.error
 from datetime import datetime, timezone
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -34,6 +40,8 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import yaml
+
+from src.server.db import DB
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG = ROOT / "configs" / "config.yaml"
@@ -61,15 +69,17 @@ def num(qs, key):
 
 
 class Store:
-    """Uploads and their audit reports on disk, GPS positions in memory, and the audit worker."""
+    """Uploads and their audit reports on disk, the database (shops, staff, GPS, visits) and the audit worker."""
 
-    def __init__(self, cfg, uploads=UPLOADS, reports=REPORTS, run_audit=None):
+    def __init__(self, cfg, uploads=UPLOADS, reports=REPORTS, run_audit=None, db_path=None):
         self.cfg, self.uploads, self.reports = cfg, Path(uploads), Path(reports)
         self.uploads.mkdir(parents=True, exist_ok=True)
+        db_path = Path(db_path or ROOT / cfg["server"]["database"])
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        self.db = DB(db_path, cfg["tracking"])
         self.run_audit = run_audit or self._run_pipeline
         self.jobs = queue.Queue()
         self.lock = threading.Lock()
-        self.locations = {}
         threading.Thread(target=self._worker, daemon=True).start()
 
     def meta_path(self, uid):
@@ -77,7 +87,8 @@ class Store:
 
     def read_meta(self, uid):
         p = self.meta_path(uid)
-        return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
+        with self.lock:  # Windows cannot replace a file while it is open, so reads and writes take turns
+            return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
 
     def write_meta(self, meta):
         # write then rename, so a reader never sees a half-written file
@@ -143,18 +154,28 @@ class Store:
         return json.loads((self.reports / Path(meta["video"]).stem / "audit.json").read_text(encoding="utf-8"))
 
     def list(self):
-        metas = [json.loads(p.read_text(encoding="utf-8")) for p in self.uploads.glob("*.json")]
+        with self.lock:
+            metas = [json.loads(p.read_text(encoding="utf-8")) for p in self.uploads.glob("*.json")]
         return sorted(metas, key=lambda m: m["received_utc"] + m["id"], reverse=True)
 
-    def set_location(self, rep, lat, lon, acc):
-        with self.lock:
-            self.locations[rep] = {"rep": rep, "lat": lat, "lon": lon, "accuracy_m": acc, "t": time.time()}
-
-    def get_locations(self):
-        ttl = self.cfg["server"]["location_ttl_sec"]
-        with self.lock:
-            return [dict(v, age_sec=round(time.time() - v["t"])) for v in self.locations.values()
-                    if time.time() - v["t"] <= ttl]
+    def seed_demo(self):
+        """NutriCoco's sample shops (Mirpur 10/11, positions approximate) and staff, only into an empty database."""
+        if self.db.shops():
+            return False
+        shops = [("Shwapno, Mirpur 10", "Mirpur 10", "supermarket", 23.8069, 90.3687),
+                 ("Al-Madina Store", "Mirpur 11", "retail", 23.8212, 90.3661),
+                 ("Rahman General Store", "Mirpur 10", "retail", 23.8051, 90.3712),
+                 ("Bhai Bhai Store", "Mirpur 11", "retail", 23.8170, 90.3630),
+                 ("Shwapno, Mirpur 11", "Mirpur 11", "supermarket", 23.8189, 90.3655),
+                 ("Mirpur Dairy Corner", "Mirpur 10", "retail", 23.8090, 90.3664)]
+        for name, area, channel, lat, lon in shops:
+            sid = self.db.add_shop(name, lat, lon, area, channel, sample=True)
+            # placeholder agreement until NutriCoco sets the real one (cups and position are editable)
+            self.db.set_agreement(sid, 4, shelf=2, zone="front", daily_fee_tk=135, note="sample", by="seed",
+                                  valid_from="2026-11-01T00:00:00+00:00")
+        for name in ("Rahim Uddin", "Jamal Hossain", "Tania Akter", "Sumon Mia"):
+            self.db.add_staff(name)
+        return True
 
 
 def make_handler(store, site=SITE):
@@ -201,8 +222,21 @@ def make_handler(store, site=SITE):
                 if not meta:
                     return self.send_json({"error": "unknown audit"}, 404)
                 return self.send_json({**meta, "report": store.report(meta["id"])})
+            qs = {k: v[0] for k, v in parse_qs(url.query).items()}
+            db = store.db
             if url.path == "/api/locations":
-                return self.send_json(store.get_locations())
+                return self.send_json(db.latest_positions(store.cfg["server"]["location_ttl_sec"]))
+            if url.path == "/api/shops":
+                return self.send_json(db.shops())
+            if url.path == "/api/staff":
+                return self.send_json(db.staff())
+            if url.path == "/api/visits":
+                return self.send_json(db.visits(qs.get("day"), qs.get("staff_id")))
+            if url.path == "/api/routes":
+                day = qs.get("day") or now_utc()[:10]
+                return self.send_json([{**db.route(s["id"], day), "name": s["name"]} for s in db.staff()])
+            if url.path == "/api/events":
+                return self.send_json(db.events_since(int(qs.get("after") or 0)))
             if url.path.startswith("/api/"):
                 return self.send_json({"error": "not found"}, 404)
             return super().do_GET()
@@ -219,13 +253,28 @@ def make_handler(store, site=SITE):
                     meta = store.save_upload(self.rfile, length, self.headers.get("Content-Type", ""),
                                              parse_qs(url.query))
                     return self.send_json({"id": meta["id"], "status": meta["status"]}, 202)
+                db = store.db
                 if url.path == "/api/locations":
                     d = self.read_json()
                     lat, lon = float(d["lat"]), float(d["lon"])
                     if not (-90 <= lat <= 90 and -180 <= lon <= 180):
                         raise ValueError("bad coordinates")
-                    store.set_location(str(d.get("rep", "unknown"))[:60], lat, lon, d.get("acc"))
-                    return self.send_json({"ok": True})
+                    acc = float(d["acc"]) if d.get("acc") is not None else None
+                    return self.send_json({"ok": True, "events": db.ping(int(d["staff_id"]), lat, lon, acc)})
+                if url.path == "/api/shops":
+                    d = self.read_json()
+                    sid = db.add_shop(str(d["name"])[:100], float(d["lat"]), float(d["lon"]), str(d.get("area", ""))[:60],
+                                      str(d.get("channel", "retail"))[:30], float(d["radius_m"]) if d.get("radius_m") else None)
+                    return self.send_json({"id": sid}, 201)
+                m = re.fullmatch(r"/api/shops/(\d+)/agreement", url.path)
+                if m:
+                    d = self.read_json()
+                    aid = db.set_agreement(int(m.group(1)), int(d["cups"]), d.get("shelf"), d.get("zone"),
+                                           d.get("daily_fee_tk"), str(d.get("note", ""))[:300], str(d.get("by", ""))[:60])
+                    return self.send_json({"id": aid}, 201)
+                if url.path == "/api/staff":
+                    d = self.read_json()
+                    return self.send_json({"id": db.add_staff(str(d["name"])[:60], str(d.get("phone", ""))[:20])}, 201)
                 if url.path == "/api/ask":
                     d = self.read_json()
                     report = store.report(str(d.get("id", "")))
@@ -249,6 +298,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--config", default=str(DEFAULT_CONFIG))
     ap.add_argument("--port", type=int, help="default: server.port in the config")
+    ap.add_argument("--seed-demo", action="store_true", help="add sample shops and staff to an empty database")
     args = ap.parse_args()
     cfg = yaml.safe_load(open(args.config, encoding="utf-8"))
     port = args.port or cfg["server"]["port"]
@@ -258,6 +308,8 @@ def main():
     import src.report.audit  # noqa: F401
     import ultralytics  # noqa: F401
     store = Store(cfg)
+    if args.seed_demo:
+        print("Added sample shops and staff." if store.seed_demo() else "Database already has shops: nothing added.")
     server = ThreadingHTTPServer(("0.0.0.0", port), make_handler(store))
     print(f"ShelfSense server: http://localhost:{port}  (phones on the same Wi-Fi: http://<this PC's IPv4>:{port})")
     print(f"Uploads -> {UPLOADS}, reports -> {REPORTS}. Ctrl+C to stop.")

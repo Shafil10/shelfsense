@@ -36,3 +36,5 @@ docs/weekly_reports/preview4.pdf
 docs/weekly_reports/figures/count_outliers.jpg
 # signed agreements and client forms (contain client details)
 docs/legal/
+
+.pytest_tmp/
