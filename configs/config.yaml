@@ -64,6 +64,12 @@ assistant:                 # "Ask about this audit" (src/assistant/ask.py): free
   max_tokens: 300          # stops repetition loops (a Bangla answer looped for 5 min without a cap)
   timeout_sec: 120
 
+server:                    # mobile app back end (src/server/app.py): dashboard + video upload + audits + GPS
+  port: 8000
+  max_upload_mb: 300       # a 30 s phone video is about 10-60 MB
+  device: cpu              # detector device; the GPU is left to the AI assistant (4 GB)
+  location_ttl_sec: 600    # hide merchandiser positions older than this
+
 kpis:
   - out_of_stock
   - share_of_shelf
