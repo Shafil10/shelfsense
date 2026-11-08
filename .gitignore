@@ -38,3 +38,5 @@ docs/weekly_reports/figures/count_outliers.jpg
 docs/legal/
 
 .pytest_tmp/
+data/uploads/
+data/shelfsense.db
