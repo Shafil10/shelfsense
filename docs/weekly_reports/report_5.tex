@@ -1,0 +1,199 @@
+% ShelfSense weekly report 5 (DRAFT by the coding assistant from the week's runs; the team checks and edits it).
+% Paste into the Overleaf main file as the next "\section{Weekly Report 5}". Upload figures/r5_*.png to the
+% Overleaf project (they are not in Git: the screenshots show the NutriCoco demo). Needs \usepackage{xcolor} and
+% \newcommand{\TODO}[1]{\textcolor{red}{[#1]}} in the preamble. Lines marked \TODO{...} need a team member.
+
+\section{Weekly Report 5}
+
+\subsection{Follow-up from last week}
+Status of the targets set in Weekly Report 4:
+\begin{enumerate}
+  \item \textbf{Correct the pre-labels of the 222 keyframes in Roboflow --- \TODO{status}.}
+  \item \textbf{Fine-tune the detector on our frames and report mAP and counting error --- \TODO{status}.}
+  The training script is ready; it needs the corrected labels of item~1.
+  \item \textbf{Verify the crop brand labels and the baseline ground truth --- \TODO{status}.}
+  \item \textbf{Record shop fridges with NutriCoco's paid front zone --- Changed.} NutriCoco will send
+  photos and videos of their cups in shop fridges themselves; we wrote a photo guide (English and
+  Bangla) so that the material is useful for training (Section~\ref{sec:r5-ai}).
+  \item \textbf{First KPI checks with evidence --- Partly done.} The paid-placement check against each
+  shop's agreement is implemented and tested (Section~\ref{sec:r5-ai}); it switches on as soon as the
+  detector knows NutriCoco's cups. Brand reading on crops is not yet in the audit pipeline.
+  \item \textbf{Re-use check robust to cropping --- Not done}, moved to next week.
+\end{enumerate}
+
+\subsection{Work narrative of the current week}
+Our industry partner NutriCoco met the team and asked for much more than a fridge check: tracking from
+the factory to the shelf, delivery staff performance, stock and restocking, Pandamart purchase orders,
+reseller ordering and live location sharing. This week we turned the audit pipeline into a working
+system with a phone app for the delivery staff, office screens for NutriCoco and a server on our PC.
+Everything below was tested on the team's computer with sample shops; 97 automated tests pass.
+
+\subsubsection{Partner requirements and scope}
+NutriCoco's nine requirements and their answers to our questions (the same staff deliver and check
+fridges; Android and iPhone; agreements per shop must be changeable; motorcycle delivery; most sales go
+to Pandamart, which sends purchase orders; dispatch records are on paper; no deadline) are written up in
+a requirements summary for NutriCoco to sign. Table~\ref{tab:r5-scope} shows how each requirement is
+covered. Only requirement~3 (AI shelf placement) is part of the course topic; the others make the
+system usable for the partner. Phase~1 (this semester) covers the delivery and audit flow and the
+NutriCoco cup detector; phase~2 covers an internet server, native apps and shop-owner ordering.
+
+\begin{table}[!t]
+\centering
+\caption{NutriCoco's requirements and their status (demo on the team's PC, sample data).}
+\label{tab:r5-scope}
+\begin{tabular}{p{0.30\linewidth}p{0.40\linewidth}p{0.20\linewidth}}
+\hline
+Requirement & What the system does & Status \\
+\hline
+1 Factory-to-shelf tracking & production $\rightarrow$ motorcycle $\rightarrow$ shop delivery $\rightarrow$ fridge video & working \\
+2 Stock and restocking & factory and motorcycle stock, restock alerts & working \\
+3 AI placement and KPIs & cups vs.\ agreement, placement, gaps, before/after & waits for photos \\
+4 Pandamart & POs entered by hand, over/under delivery, returns & no API access \\
+5 Staff performance & check-in/out, time per shop, km, fuel cost & working \\
+6 Live location & live map, expiring share links, arrival alerts & app must be open \\
+7 Wholesale vs.\ reseller & customer types, separate sections and prices & working \\
+8 Direct ordering & reseller ordering page with PIN & working \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Server and phone app}
+A small server on our PC (Python's built-in HTTP server, nothing extra to install) receives videos,
+runs the Sprint~5 audit pipeline in a background worker and stores everything in SQLite. Phones need
+HTTPS for camera and GPS, so the demo is reached through a free Cloudflare tunnel. Each rider and the
+office log in with a 6-digit PIN; only salted PBKDF2 hashes are stored and five wrong PINs lock the
+address for five minutes. Riders see only their own data.
+
+The rider app is an installable web app (one code base for Android and iPhone, English and Bangla,
+Fig.~\ref{fig:r5-app}). It records the fridge video \emph{inside} the app at 720p: a live recording
+cannot be an old video from the gallery, and an 8\,s test recording was 414\,kB instead of the 83\,MB
+of a 4K 60\,fps phone video sent by a team member. Videos, GPS points and deliveries made without a
+signal wait in an offline outbox and are sent later with their original time.
+Table~\ref{tab:r5-uploads} shows real uploads through the server.
+
+\begin{table}[!t]
+\centering
+\caption{Videos uploaded through the server and audited (CPU detector).}
+\label{tab:r5-uploads}
+\begin{tabular}{lccl}
+\hline
+Video & Size & Time (s) & Result \\
+\hline
+WA0089 (supermarket, 576$\times$1024) & 3.3\,MB & 8.5 & re-audit: same footage as an earlier audit \\
+WA0061 (supermarket, 576$\times$1024) & 0.8\,MB & 3.6 & re-audit: same footage as an earlier audit \\
+Team phone video (3840$\times$2160, 60\,fps) & 83\,MB & 16.8 & review: no products in 6 of 10 keyframes \\
+In-app recording (test camera, 1280$\times$720) & 0.4\,MB & --- & re-audit: filmed 1.6\,km from the chosen shop \\
+\hline
+\end{tabular}
+\end{table}
+
+Both re-audit results on supermarket videos are correct: the same files had been audited before, and
+the re-use check found them. The phone video showed a person in a room, not a shelf; the detector found
+0--1 ``products'' per frame (once a face) and the audit asked for a review. Every video is now also
+checked for \emph{where} and \emph{when} it was filmed: more than 200\,m from the shop gives a warning,
+more than 1\,km a re-audit, and a video recorded more than 6\,h before it was sent a warning.
+
+\subsubsection{Delivery tracking}
+While the app is open, the phone sends a GPS point every 15\,s or 30\,m. A rider is checked in when
+inside a shop's 80\,m circle and checked out only beyond 120\,m, so standing at the edge does not
+flicker. Points with an accuracy worse than 50\,m or implying more than 90\,km/h are stored but never
+change a visit or add distance. A simulated two-hour route through the sample Mirpur shops (167 points)
+gave 5.65\,km and 8 visits; one of them was the rider passing a shop without stopping, so stays under
+2 minutes now count as ``passed by''. Route reports give start and end time, km, fuel cost (with
+placeholder fuel numbers until NutriCoco sets theirs), shops visited and time per shop.
+
+\subsubsection{Distribution records}
+Production, loading of each motorcycle, deliveries with returned quantities and reasons, Pandamart
+purchase orders and reseller orders are recorded in the app. The office sees over- and
+under-delivery per PO (the demo PO was 6 cups short), stock in the factory and on each motorcycle,
+returns by reason and restock alerts. Resellers order on their own page at wholesale prices.
+
+\subsubsection{AI parts}\label{sec:r5-ai}
+\textbf{Agreement check.} For each fridge video the system takes the agreement valid on the day it was
+recorded (cups, shelf, position) and reports the cups visible in the best keyframe, the cups in the
+agreed place, empty gaps on the agreed shelf, the share of that shelf, and the change since the shop's
+previous video. Following our precision-over-recall rule, a shortfall is reported as a violation only
+when the video passed the coverage checks; otherwise it is ``unclear'' and a person decides. The check
+is tested on hand-made detections and stays ``pending'' until the detector has a NutriCoco cup class.
+The training script for that detector splits photos by shop visit (near-identical photos of one fridge
+must not be in both training and test) and reports mAP per class and the cup-counting error; it was
+tested end to end on a small artificial dataset.
+
+\textbf{Audit assistant.} The ``Ask about this audit'' chat runs a free open model on our PC through
+Ollama, so no data leaves the PC. It only receives one audit report and strict rules (use only this
+data, cite the keyframe, say when the data does not show something, never decide payments, answer in
+the language of the question). Table~\ref{tab:r5-assistant} compares three models on 10 questions
+(6 English, 4 Bangla) about 3 real audits. With the first rules the models answered Bangla questions in
+English and gave payment advice; repeating the language rule next to the question and fixing the
+closing sentence for payment questions raised Gemma~3 4B from 25 to 29 of 30. We chose Gemma~3 4B.
+
+\begin{table}[!t]
+\centering
+\caption{Audit assistant: checks passed out of 30 answers per model (rules v2; v1 in brackets).}
+\label{tab:r5-assistant}
+\begin{tabular}{lccc}
+\hline
+ & Gemma 3 4B & Qwen2.5 3B & Qwen2.5 1.5B \\
+\hline
+All checks & 29 (25) & 22 (24) & 22 (19) \\
+Facts correct (of 15) & 14 (15) & 10 (11) & 11 (11) \\
+Refuses what the data does not show (of 9) & 9 (9) & 6 (9) & 5 (8) \\
+Leaves payment to the auditor (of 6) & 6 (1) & 6 (4) & 6 (0) \\
+Bangla questions answered in Bangla (of 12) & 9 (1) & 12 (4) & 12 (9) \\
+Median time per answer (s, GTX 1650) & 11.3 & 3.4 & 2.9 \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=0.32\linewidth]{figures/r5_field_app.png}\hfill
+\includegraphics[width=0.64\linewidth]{figures/r5_office_live.png}
+\caption{Left: rider app in Bangla (tracking, in-app fridge video, delivery). Right: NutriCoco's live
+map with shops, their check-in circles and the check-in feed (sample data).}
+\label{fig:r5-app}
+\end{figure}
+
+\subsubsection{Challenges}
+\begin{itemize}
+  \item \textbf{Background tracking.} A web app can only track while it is open on the screen; the app
+  keeps the screen on while tracking. Tracking with a locked phone needs a native app (phase~2).
+  \item \textbf{Bugs found by testing.} A single wrong GPS point once checked a rider out of a shop;
+  report days were counted in UTC instead of Bangladesh time; a video waited forever for a GPS position
+  when the permission question was not answered; the app did not know about a visit that started
+  before it was opened. All four are fixed and covered by tests.
+  \item \textbf{No NutriCoco photos yet.} Cup counting depends on them; the rest of the system was
+  built so that the trained detector only has to be dropped in.
+  \item \textbf{Pandamart.} No public API is available, so purchase orders are entered by hand.
+\end{itemize}
+
+\subsection{Target for next weekly update}
+\begin{enumerate}
+  \item Get the requirements summary signed and the pilot shop list with each shop's agreement from
+  NutriCoco; replace the sample shops and prices.
+  \item Label NutriCoco's photos (two members check every test photo), train the cup detector and
+  report mAP and the cup-counting error on unseen photos.
+  \item Pilot ride in Mirpur~10/11 with a team member's phone: measure check-in accuracy, false visits
+  and the km against the motorcycle's odometer.
+  \item Carried over: correct the 222 keyframes in Roboflow and fine-tune the shelf detector.
+  \item Carried over: re-use check robust to cropping (local feature matching).
+\end{enumerate}
+
+\subsection{Individual contribution}
+\begin{table}[!h]
+\centering
+\caption{Contribution summary.}
+\begin{tabular}{lcc}
+\hline
+Task List & Member Assigned & Comments \\
+\hline
+NutriCoco meeting, requirements and NDA & \TODO{member} & 9 requirements \\
+Audit assistant evaluation & \TODO{member} & 3 models, 30 answers each \\
+Server, login and tracking & \TODO{member} & geofence check-in/out \\
+Rider app and offline outbox & \TODO{member} & English / Bangla \\
+Office screens and reseller page & \TODO{member} & orders, stock, POs \\
+Agreement check and training script & \TODO{member} & waits for photos \\
+Testing on phones & \TODO{member} & 4K video, live location \\
+\hline
+\end{tabular}
+\end{table}
