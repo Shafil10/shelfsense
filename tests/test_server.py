@@ -2,6 +2,7 @@
 
 Run from the project root:  python -m pytest -v
 """
+import http.cookiejar
 import json
 import threading
 import time
@@ -14,7 +15,7 @@ import pytest
 from src.server import app
 
 CFG = {"server": {"max_upload_mb": 1, "location_ttl_sec": 600, "device": "cpu"},
-       "tracking": {"geofence_radius_m": 80, "checkout_factor": 1.5, "gps_max_accuracy_m": 50, "min_step_m": 10,
+       "tracking": {"utc_offset_hours": 6, "geofence_radius_m": 80, "checkout_factor": 1.5, "gps_max_accuracy_m": 50, "min_step_m": 10,
                     "max_speed_kmh": 90, "fuel": {"km_per_litre": 40, "price_per_litre_tk": 130}},
        "assistant": {"url": "http://localhost:1", "model": "m", "num_ctx": 512, "timeout_sec": 1}}
 
@@ -34,17 +35,31 @@ def server(tmp_path):
     (tmp_path / "reports" / "old").mkdir(parents=True)
     (tmp_path / "reports" / "old" / "e.jpg").write_bytes(b"jpg")
     store = app.Store(CFG, tmp_path / "uploads", tmp_path / "reports", run_audit=fake_audit, db_path=tmp_path / "t.db")
-    store.seed_demo()
+    PINS.clear()
+    PINS.update(store.seed_demo())
     srv = ThreadingHTTPServer(("127.0.0.1", 0), app.make_handler(store, site))
     threading.Thread(target=srv.serve_forever, daemon=True).start()
-    yield f"http://127.0.0.1:{srv.server_address[1]}", tmp_path
+    base = f"http://127.0.0.1:{srv.server_address[1]}"
+    OPENER["office"] = login(base, PINS["NutriCoco office"])[1]  # call() uses the office login by default
+    yield base, tmp_path
     srv.shutdown()
 
 
-def call(url, data=None, ctype="application/json"):
+PINS, OPENER = {}, {}
+
+
+def login(base, pin):
+    """(status, opener that keeps the session cookie)."""
+    op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+    code, _ = call(f"{base}/api/login", json.dumps({"pin": pin}).encode(), op=op)
+    return code, op
+
+
+def call(url, data=None, ctype="application/json", op=None):
+    op = op or OPENER.get("office") or urllib.request.build_opener()
     req = urllib.request.Request(url, data=data, headers={"Content-Type": ctype} if data is not None else {})
     try:
-        with urllib.request.urlopen(req, timeout=5) as r:
+        with op.open(req, timeout=5) as r:
             body = r.read()
             return r.status, json.loads(body) if r.headers.get_content_type() == "application/json" else body
     except urllib.error.HTTPError as e:
@@ -90,8 +105,44 @@ def test_upload_rejects_non_video_and_too_large(server):
     assert not list((base_tmp := server[1] / "uploads").glob("*.mp4")), base_tmp
 
 
-def post(url, obj):
-    return call(url, json.dumps(obj).encode())
+def post(url, obj, op=None):
+    return call(url, json.dumps(obj).encode(), op=op)
+
+
+def test_login_required_and_roles(server):
+    base, _ = server
+    anon = urllib.request.build_opener()
+    assert call(f"{base}/api/shops", op=anon)[0] == 401
+    assert call(f"{base}/reports/old/e.jpg", op=anon)[0] == 401
+    assert call(f"{base}/index.html", op=anon)[0] == 200          # the public dashboard mockup needs no login
+    assert login(base, "000000")[0] == 401 or PINS["NutriCoco office"] == "000000"
+    code, rahim = login(base, PINS["Rahim Uddin"])
+    assert code == 200 and call(f"{base}/api/me", op=rahim)[1]["name"] == "Rahim Uddin"
+    assert call(f"{base}/api/shops", op=rahim)[0] == 200          # staff may read shops...
+    assert call(f"{base}/api/routes", op=rahim)[0] == 403         # ...but not office reports
+    assert post(f"{base}/api/shops/1/agreement", {"cups": 9}, op=rahim)[0] == 403
+    # staff always ping as themselves, whatever staff_id they send
+    _, r = post(f"{base}/api/locations", {"staff_id": 999, "lat": 23.8069, "lon": 90.3687, "acc": 5}, op=rahim)
+    assert r["events"][0]["kind"] == "check_in"
+    _, locs = call(f"{base}/api/locations")
+    assert [p["name"] for p in locs] == ["Rahim Uddin"]
+    # staff see only their own uploads
+    _, up = call(f"{base}/api/audits?shop=a", b"video", "video/mp4", op=rahim)
+    wait_done(base, up["id"])
+    _, office_up = call(f"{base}/api/audits?shop=b", b"video", "video/mp4")
+    assert [m["id"] for m in call(f"{base}/api/audits", op=rahim)[1]] == [up["id"]]
+    assert call(f"{base}/api/audits/{office_up['id']}", op=rahim)[0] == 404
+    assert call(f"{base}/api/audits/{up['id']}", op=rahim)[1]["rep"] == "Rahim Uddin"
+    post(f"{base}/api/logout", {}, op=rahim)
+    assert call(f"{base}/api/me", op=rahim)[0] == 401
+
+
+def test_wrong_pins_lock_out(server):
+    base, _ = server
+    wrong = next(p for p in (f"{i:06d}" for i in range(100)) if p not in PINS.values())
+    for _ in range(5):
+        assert login(base, wrong)[0] == 401
+    assert login(base, PINS["Rahim Uddin"])[0] == 429              # locked even with the right PIN
 
 
 def test_gps_pings_make_visits_and_routes(server):

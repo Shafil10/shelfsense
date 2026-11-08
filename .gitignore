@@ -40,3 +40,4 @@ docs/legal/
 .pytest_tmp/
 data/uploads/
 data/shelfsense.db
+data/demo_pins.txt

@@ -6,7 +6,7 @@ import pytest
 
 from src.server.db import DB, dist_m
 
-CFG = {"geofence_radius_m": 80, "checkout_factor": 1.5, "gps_max_accuracy_m": 50, "min_step_m": 10,
+CFG = {"utc_offset_hours": 6, "geofence_radius_m": 80, "checkout_factor": 1.5, "gps_max_accuracy_m": 50, "min_step_m": 10,
        "max_speed_kmh": 90, "fuel": {"km_per_litre": 40, "price_per_litre_tk": 130}}
 SHOP_A = (23.8069, 90.3687)
 SHOP_B = (23.8189, 90.3655)  # about 1.4 km north
@@ -74,6 +74,30 @@ def test_route_km_fuel_and_noise(db):
     assert r["fuel_cost_tk"] == round(r["km"] / 40 * 130, 1)
     assert r["visits"] == 3 and r["shops"] == 2 and r["route_minutes"] == 20.0
     assert r["avg_minutes_in_shop"] == 10.0                            # A 0-10, B 10-20 (the last one is still open)
+
+
+def test_days_follow_bangladesh_time(db):
+    db.ping(db.rahim, *SHOP_A, acc=5, t="2026-11-09T19:30:00+00:00")   # 01:30 on 10 Nov in Dhaka
+    assert db.day_range("2026-11-10") == ("2026-11-09T18:00:00+00:00", "2026-11-10T18:00:00+00:00")
+    assert len(db.visits("2026-11-10")) == 1 and db.visits("2026-11-09") == []
+    assert db.route(db.rahim, "2026-11-10")["pings"] == 1
+
+
+def test_pins_are_hashed_unique_and_replaceable(db):
+    office = db.new_pin("office")
+    first = db.new_pin("staff", db.rahim)
+    assert len(first) == 6 and first.isdigit() and first != office
+    assert db.check_pin(first) == {"role": "staff", "staff_id": db.rahim, "name": "Rahim"}
+    assert db.check_pin(office)["role"] == "office"
+    assert all(first not in str(r) for r in db.q("SELECT * FROM access"))   # only hashes are stored
+    second = db.new_pin("staff", db.rahim)                                   # a new PIN replaces the old one
+    assert db.check_pin(first) is None or first == second
+    assert db.check_pin(second)["staff_id"] == db.rahim
+    assert db.check_pin("12ab56") is None and db.check_pin("") is None
+    with pytest.raises(ValueError):
+        db.new_pin("staff")
+    with pytest.raises(KeyError):
+        db.new_pin("staff", 999)
 
 
 def test_latest_positions_and_events(db):

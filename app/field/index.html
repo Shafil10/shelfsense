@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050A13">
+<title>ShelfSense Field</title>
+<style>
+/* Field staff app (first version): PIN login, GPS tracking with automatic shop check-in/out, fridge video upload. */
+:root { --bg: #050A13; --card: #0E192B; --line: rgba(130, 180, 255, .16); --fg: #E7F0FF; --muted: #8399B8;
+  --accent: #2EE6FF; --on-accent: #02121A; --ok: #3CF0A8; --warn: #FFC24B; --bad: #FF5C7C; color-scheme: dark; }
+@media (prefers-color-scheme: light) { :root { --bg: #EDF2FA; --card: #FFFFFF; --line: rgba(30, 70, 140, .16); --fg: #0B1830;
+  --muted: #50627E; --accent: #0090C4; --on-accent: #FFFFFF; --ok: #0E9A63; --warn: #B07000; --bad: #D6334F; color-scheme: light; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.45 system-ui, "Segoe UI", "Noto Sans Bengali", sans-serif;
+  padding: env(safe-area-inset-top) 16px calc(24px + env(safe-area-inset-bottom)); }
+main { max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+header { display: flex; align-items: center; gap: 10px; padding: 14px 0 4px; }
+header b { font-size: 1.15rem; } header .grow { flex: 1; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+h2 { margin: 0; font-size: 1rem; }
+.muted { color: var(--muted); font-size: .85rem; }
+button, .btn { font: inherit; border: 1px solid var(--line); background: transparent; color: var(--fg); border-radius: 12px;
+  padding: 12px 14px; font-weight: 600; cursor: pointer; text-align: center; }
+.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.danger { border-color: var(--bad); color: var(--bad); }
+button:disabled { opacity: .5; }
+input, select { font: inherit; color: inherit; background: transparent; border: 1px solid var(--line); border-radius: 12px; padding: 12px; width: 100%; }
+#pin { font-size: 1.6rem; letter-spacing: .5em; text-align: center; }
+.row { display: flex; gap: 8px; align-items: center; } .row > * { flex: 1; }
+.chip { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: .8rem; font-weight: 600; border: 1px solid currentColor; }
+.ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+.log { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow: auto; font-size: .88rem; }
+.log div { padding: 8px 10px; border-radius: 10px; background: rgba(120, 180, 255, .06); }
+.bar { height: 8px; border-radius: 99px; background: rgba(120, 180, 255, .12); overflow: hidden; } .bar i { display: block; height: 100%; width: 0; background: var(--accent); }
+.toast { position: fixed; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); max-width: 520px; margin: 0 auto;
+  background: var(--accent); color: var(--on-accent); padding: 14px; border-radius: 14px; font-weight: 600; box-shadow: 0 8px 30px rgba(0,0,0,.4); }
+img.ev { width: 100%; border-radius: 10px; border: 1px solid var(--line); }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main id="app"></main>
+<div class="toast" id="toast" hidden></div>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const S = { me: null, shops: [], tracking: false, watch: null, wake: null, fix: null, lastSent: 0, visitShop: null, log: [], upload: null };
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, { credentials: "same-origin", ...opts,
+    headers: opts.body && !(opts.body instanceof Blob) ? { "Content-Type": "application/json" } : opts.headers });
+  const data = await r.json().catch(() => ({}));
+  if (r.status === 401 && path !== "/api/login") { S.me = null; render(); }
+  if (!r.ok) throw new Error(data.error || r.statusText);
+  return data;
+}
+function toast(text) {
+  const el = $("toast"); el.textContent = text; el.hidden = false;
+  clearTimeout(toast.t); toast.t = setTimeout(() => { el.hidden = true; }, 4000);
+  if (navigator.vibrate) navigator.vibrate(200);
+  if ("Notification" in window && Notification.permission === "granted" && document.hidden) new Notification("ShelfSense", { body: text });
+}
+const shopName = id => (S.shops.find(s => s.id === id) || {}).name || "shop " + id;
+const hhmm = t => new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+/* ---------- screens ---------- */
+function render() {
+  const app = $("app");
+  if (!S.me) {
+    app.innerHTML = '<header><b>ShelfSense Field</b></header><form class="card" id="loginForm"><h2>Log in</h2>' +
+      '<p class="muted">Enter the 6-digit PIN from NutriCoco.</p><input id="pin" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required>' +
+      '<button class="primary" type="submit">Log in</button><p class="muted" id="loginErr"></p></form>';
+    $("pin").focus();
+    return;
+  }
+  const opts = S.shops.map(s => '<option value="' + s.id + '"' + (s.id === (S.upload?.shop ?? S.visitShop) ? " selected" : "") + ">" + esc(s.name) + "</option>").join("");
+  app.innerHTML =
+    '<header><b>' + esc(S.me.name) + '</b><span class="grow"></span><button id="logout">Log out</button></header>' +
+    '<section class="card"><div class="row"><h2>Route tracking</h2><span id="trk" class="chip ' + (S.tracking ? "ok" : "warn") + '">' + (S.tracking ? "On" : "Off") + "</span></div>" +
+    '<p class="muted">Keep this page open while you ride: you are checked in and out at shops automatically.</p>' +
+    '<button id="track" class="' + (S.tracking ? "danger" : "primary") + '">' + (S.tracking ? "Stop tracking" : "Start tracking") + "</button>" +
+    '<p class="muted" id="fix">' + fixText() + '</p><p id="here">' + hereText() + '</p><div class="log" id="log">' + logHtml() + "</div></section>" +
+    '<section class="card"><h2>Fridge video</h2><p class="muted">Film the whole fridge slowly from top to bottom, about 1 m away, 15-30 s.</p>' +
+    '<select id="shop">' + opts + '</select><label class="btn primary" for="vid">Record video</label>' +
+    '<input id="vid" type="file" accept="video/*" capture="environment" hidden>' + uploadHtml() + "</section>";
+}
+function fixText() {
+  if (!S.fix) return S.tracking ? "Waiting for GPS…" : "";
+  return "GPS " + S.fix.lat.toFixed(5) + ", " + S.fix.lon.toFixed(5) + " (±" + Math.round(S.fix.acc) + " m) · " + hhmm(S.fix.t);
+}
+function hereText() { return S.visitShop ? '<span class="chip ok">At ' + esc(shopName(S.visitShop)) + "</span>" : ""; }
+function logHtml() { return S.log.map(l => "<div>" + esc(l) + "</div>").join(""); }
+function uploadHtml() {
+  const u = S.upload; if (!u) return "";
+  if (u.stage === "uploading") return '<div class="bar"><i style="width:' + u.pct + '%"></i></div><p class="muted">Uploading ' + u.pct + "%</p>";
+  if (u.stage === "error") return '<p class="bad">' + esc(u.error) + "</p>";
+  if (u.stage !== "done") return '<p class="muted">Checking the video on the server… (' + esc(u.status || "queued") + ")</p>";
+  const r = u.report, v = r.integrity.verdict, cls = { ok: "ok", review: "warn", "re-audit": "bad" }[v] || "warn";
+  const kf = r.keyframes.reduce((best, k) => (!best || k.products > best.products ? k : best), null);
+  return '<div><span class="chip ' + cls + '">' + esc(v) + "</span></div>" +
+    "<p>" + r.summary.keyframes + " sharp frames checked, up to " + r.summary.products_per_keyframe.max + " products seen.</p>" +
+    r.integrity.flags.map(f => '<p class="' + (f.severity === "critical" ? "bad" : "warn") + '">' + esc(f.detail) + "</p>").join("") +
+    (kf ? '<img class="ev" alt="Evidence frame" src="/reports/' + encodeURIComponent(r.video.file.replace(/\.[^.]+$/, "")) + "/" + kf.evidence + '">' : "");
+}
+function refresh(id, html) { const el = $(id); if (el) el.innerHTML = html; }
+
+/* ---------- login ---------- */
+document.addEventListener("submit", async e => {
+  if (e.target.id !== "loginForm") return;
+  e.preventDefault();
+  try {
+    S.me = await api("/api/login", { method: "POST", body: JSON.stringify({ pin: $("pin").value }) });
+    await start();
+  } catch (err) { $("loginErr").textContent = err.message; }
+});
+async function start() {
+  S.shops = await api("/api/shops");
+  render();
+}
+
+/* ---------- GPS tracking: one ping every 15 s or after 30 m of movement ---------- */
+async function startTracking() {
+  if (!navigator.geolocation) return toast("This phone's browser has no GPS access.");
+  if ("Notification" in window && Notification.permission === "default") Notification.requestPermission();
+  try { S.wake = await navigator.wakeLock?.request("screen"); } catch (e) { /* not supported: fine */ }
+  S.tracking = true;
+  S.watch = navigator.geolocation.watchPosition(onFix, err => toast("GPS: " + err.message), { enableHighAccuracy: true, maximumAge: 5000, timeout: 30000 });
+  render();
+}
+function stopTracking() {
+  if (S.watch !== null) navigator.geolocation.clearWatch(S.watch);
+  S.watch = null; S.tracking = false; S.wake?.release?.(); S.wake = null;
+  render();
+}
+async function onFix(p) {
+  const fix = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy, t: Date.now() };
+  const moved = S.fix ? distM(S.fix, fix) : Infinity;
+  S.fix = fix; refresh("fix", fixText());
+  if (Date.now() - S.lastSent < 15000 && moved < 30) return;
+  S.lastSent = Date.now();
+  try {
+    const r = await api("/api/locations", { method: "POST", body: JSON.stringify({ lat: fix.lat, lon: fix.lon, acc: fix.acc }) });
+    for (const ev of r.events) {
+      const name = shopName(ev.shop_id);
+      if (ev.kind === "check_in") { S.visitShop = ev.shop_id; S.log.unshift(hhmm(ev.t) + " · Checked in at " + name); toast("Checked in at " + name + ". Remember to film the fridge."); }
+      else { if (S.visitShop === ev.shop_id) S.visitShop = null; S.log.unshift(hhmm(ev.t) + " · Checked out of " + name); toast("Checked out of " + name); }
+    }
+    if (r.events.length) { refresh("here", hereText()); refresh("log", logHtml()); const sel = $("shop"); if (sel && S.visitShop) sel.value = S.visitShop; }
+  } catch (err) { refresh("fix", fixText() + " · not sent: " + esc(err.message)); }
+}
+function distM(a, b) {
+  const k = Math.PI / 180, h = Math.sin((b.lat - a.lat) * k / 2) ** 2 + Math.cos(a.lat * k) * Math.cos(b.lat * k) * Math.sin((b.lon - a.lon) * k / 2) ** 2;
+  return 2 * 6371000 * Math.asin(Math.sqrt(h));
+}
+document.addEventListener("visibilitychange", async () => {  // the screen lock releases the wake lock: take it again
+  if (S.tracking && document.visibilityState === "visible") { try { S.wake = await navigator.wakeLock?.request("screen"); } catch (e) { /* ignore */ } }
+});
+
+/* ---------- fridge video: upload with progress, then wait for the audit ---------- */
+document.addEventListener("change", e => {
+  if (e.target.id === "shop" && S.upload) S.upload.shop = +e.target.value;
+  if (e.target.id !== "vid" || !e.target.files[0]) return;
+  const file = e.target.files[0], shop = +$("shop").value;
+  if (file.size > 300e6) { S.upload = { stage: "error", error: "Video is too large (max 300 MB). Record a shorter one." }; return render(); }
+  const q = new URLSearchParams({ shop: shopName(shop), captured: new Date(file.lastModified || Date.now()).toISOString() });
+  if (S.fix) { q.set("lat", S.fix.lat); q.set("lon", S.fix.lon); q.set("acc", S.fix.acc); }
+  S.upload = { stage: "uploading", pct: 0, shop };
+  render();
+  const xhr = new XMLHttpRequest();  // fetch() cannot report upload progress
+  xhr.open("POST", "/api/audits?" + q);
+  xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
+  xhr.upload.onprogress = ev => { if (ev.lengthComputable) { S.upload.pct = Math.round(ev.loaded / ev.total * 100); render(); } };
+  xhr.onload = () => {
+    let r = {}; try { r = JSON.parse(xhr.responseText); } catch (err) { /* keep {} */ }
+    if (xhr.status !== 202) { S.upload = { stage: "error", error: r.error || "Upload failed (" + xhr.status + ")" }; return render(); }
+    S.upload = { stage: "queued", id: r.id, shop }; render(); poll(r.id);
+  };
+  xhr.onerror = () => { S.upload = { stage: "error", error: "No connection to the server. Try again." }; render(); };
+  xhr.send(file);
+});
+async function poll(id) {
+  try {
+    const m = await api("/api/audits/" + id);
+    if (m.status === "done") { S.upload = { stage: "done", report: m.report, shop: S.upload.shop }; return render(); }
+    if (m.status === "failed") { S.upload = { stage: "error", error: "The server could not read this video: " + m.error }; return render(); }
+    S.upload.status = m.status; render();
+  } catch (err) { /* network hiccup: try again */ }
+  setTimeout(() => poll(id), 2000);
+}
+
+document.addEventListener("click", async e => {
+  if (e.target.id === "track") S.tracking ? stopTracking() : startTracking();
+  if (e.target.id === "logout") { stopTracking(); await api("/api/logout", { method: "POST", body: "{}" }).catch(() => {}); S.me = null; render(); }
+});
+
+(async () => {
+  try { S.me = await api("/api/me"); await start(); } catch (e) { render(); }
+})();
+</script>
+</body>
+</html>

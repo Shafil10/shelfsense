@@ -11,7 +11,10 @@ so GPS noise inside a building does not create false check-outs or kilometres.
 A shop's agreement (cups, shelf, zone) can change at any time. Changes are stored as new rows with a date,
 never overwritten, so an audit is always compared with the agreement that was valid on that day.
 """
+import hashlib
+import hmac
 import math
+import secrets
 import sqlite3
 import threading
 from datetime import datetime, timedelta, timezone
@@ -34,7 +37,11 @@ CREATE TABLE IF NOT EXISTS visits (
   check_in TEXT NOT NULL, check_out TEXT, in_lat REAL, in_lon REAL, in_dist_m REAL, how TEXT DEFAULT 'geofence');
 CREATE TABLE IF NOT EXISTS events (
   id INTEGER PRIMARY KEY, t TEXT NOT NULL, staff_id INTEGER, shop_id INTEGER, visit_id INTEGER, kind TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS access (
+  id INTEGER PRIMARY KEY, role TEXT NOT NULL, staff_id INTEGER REFERENCES staff(id), salt TEXT NOT NULL,
+  pin_hash TEXT NOT NULL, created TEXT NOT NULL);
 """
+ROLES = ("office", "staff")
 
 
 def iso(dt):
@@ -104,6 +111,39 @@ class DB:
     def staff(self):
         return self.q("SELECT * FROM staff WHERE active=1 ORDER BY name")
 
+    # ---------- PIN login: only a salted hash of each PIN is stored ----------
+    @staticmethod
+    def _hash(pin, salt):
+        return hashlib.pbkdf2_hmac("sha256", pin.encode(), bytes.fromhex(salt), 60_000).hex()
+
+    def new_pin(self, role, staff_id=None):
+        """Create a random 6-digit PIN for the office or one staff member; returns the PIN (shown once).
+        A staff member's older PINs stop working."""
+        if role not in ROLES or (role == "staff") != (staff_id is not None):
+            raise ValueError("role must be 'office', or 'staff' with a staff_id")
+        if staff_id is not None:
+            if not self.q("SELECT id FROM staff WHERE id=?", (staff_id,)):
+                raise KeyError(f"unknown staff {staff_id}")
+            self.x("DELETE FROM access WHERE role='staff' AND staff_id=?", (staff_id,))
+        while True:  # PINs must be unique, because the PIN alone says who is logging in
+            pin = f"{secrets.randbelow(10 ** 6):06d}"
+            if self.check_pin(pin) is None:
+                break
+        salt = secrets.token_hex(16)
+        self.x("INSERT INTO access (role, staff_id, salt, pin_hash, created) VALUES (?,?,?,?,?)",
+               (role, staff_id, salt, self._hash(pin, salt), iso(datetime.now(timezone.utc))))
+        return pin
+
+    def check_pin(self, pin):
+        """{'role', 'staff_id', 'name'} for a valid PIN, else None."""
+        pin = str(pin).strip()
+        if not (len(pin) == 6 and pin.isdigit()):
+            return None
+        for r in self.q("SELECT a.*, s.name FROM access a LEFT JOIN staff s ON s.id=a.staff_id"):
+            if hmac.compare_digest(self._hash(pin, r["salt"]), r["pin_hash"]):
+                return {"role": r["role"], "staff_id": r["staff_id"], "name": r["name"] or "NutriCoco office"}
+        return None
+
     def open_visit(self, staff_id):
         rows = self.q("SELECT * FROM visits WHERE staff_id=? AND check_out IS NULL ORDER BY id DESC LIMIT 1", (staff_id,))
         return rows[0] if rows else None
@@ -150,13 +190,21 @@ class DB:
                       "(SELECT id FROM pings WHERE staff_id=s.id ORDER BY t DESC, id DESC LIMIT 1) WHERE p.t>=?", (since,))
 
     # ---------- reports ----------
+    def today(self):
+        return (datetime.now(timezone.utc) + timedelta(hours=self.cfg["utc_offset_hours"])).date().isoformat()
+
+    def day_range(self, day):
+        """Local day 'YYYY-MM-DD' -> [start, end) in UTC ISO text (times are stored in UTC)."""
+        start = datetime.fromisoformat(day).replace(tzinfo=timezone.utc) - timedelta(hours=self.cfg["utc_offset_hours"])
+        return iso(start), iso(start + timedelta(days=1))
+
     def visits(self, day=None, staff_id=None):
         sql = ("SELECT v.*, s.name AS shop, st.name AS staff FROM visits v JOIN shops s ON s.id=v.shop_id "
                "JOIN staff st ON st.id=v.staff_id WHERE 1=1")
         args = []
         if day:
-            sql += " AND substr(v.check_in,1,10)=?"
-            args.append(day)
+            sql += " AND v.check_in>=? AND v.check_in<?"
+            args += self.day_range(day)
         if staff_id:
             sql += " AND v.staff_id=?"
             args.append(staff_id)
@@ -167,7 +215,7 @@ class DB:
 
     def route(self, staff_id, day):
         """One staff member's day: start/end, km, fuel cost, visits, time in shops."""
-        pings = self.q("SELECT * FROM pings WHERE staff_id=? AND substr(t,1,10)=? ORDER BY t, id", (staff_id, day))
+        pings = self.q("SELECT * FROM pings WHERE staff_id=? AND t>=? AND t<? ORDER BY t, id", (staff_id, *self.day_range(day)))
         km, prev = 0.0, None
         for p in (p for p in pings if p["ok"]):
             if prev:

@@ -79,6 +79,16 @@ python scripts/eval_assistant.py --models qwen2.5:3b gemma3:4b qwen2.5:1.5b   # 
 ```
 The assistant only explains: payments stay with the rules and the auditor.
 
+## Phone demo (field staff app)
+Double-click `start_demo.bat`: it starts the ShelfSense server and a free Cloudflare https link. Open the
+`https://….trycloudflare.com` address it shows, add `/field/`, and log in with a PIN from `data\demo_pins.txt`
+(created on the first start). The rider is checked in and out at shops automatically while tracking is on,
+and a recorded fridge video is audited on the PC within seconds. Close both windows to stop the link.
+```
+python -m src.server.app --seed-demo     # server only (http://localhost:8000), sample shops + PINs on first run
+python -m src.server.app --new-pin 2     # new PIN for staff member 2 (or: office)
+```
+
 ## Data
 Large files (videos, frames, datasets) are not stored in Git. Keep them in
 `data/` locally and share through Google Drive. SKU-110K is for academic, non-commercial
