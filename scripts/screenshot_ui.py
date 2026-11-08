@@ -75,6 +75,7 @@ def main():
             lat, lon = map(float, args.geo.split(","))
             page.send("Browser.grantPermissions", permissions=["geolocation", "notifications"])
             page.send("Emulation.setGeolocationOverride", latitude=lat, longitude=lon, accuracy=10)
+        page.send("Network.clearBrowserCookies")  # start logged out: the test profile keeps cookies between runs
         page.send("Page.navigate", url=args.url)
         time.sleep(args.wait)
         if args.pin:

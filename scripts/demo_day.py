@@ -65,6 +65,8 @@ def main():
 
     # factory: production and loading the motorcycle
     c.post("/api/production", {"product_id": cup, "qty": 600, "note": "demo"})
+    if box != cup:
+        c.post("/api/production", {"product_id": box, "qty": 20, "note": "demo"})
     c.post("/api/dispatches", {"staff_id": staff["id"], "items": [{"product_id": cup, "qty": 180}, {"product_id": box, "qty": 4}], "note": "demo"})
     panda = shops.get("Pandamart Mirpur (sample)")
     po = c.post("/api/pos", {"number": "PM-DEMO-" + datetime.now().strftime("%H%M"), "shop_id": panda["id"],
