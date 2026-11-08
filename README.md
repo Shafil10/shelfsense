@@ -84,6 +84,8 @@ Double-click `start_demo.bat`: it starts the ShelfSense server and a free Cloudf
 `https://….trycloudflare.com` address it shows, add `/field/`, and log in with a PIN from `data\demo_pins.txt`
 (created on the first start). The rider is checked in and out at shops automatically while tracking is on,
 and a recorded fridge video is audited on the PC within seconds. Close both windows to stop the link.
+NutriCoco's office view is the same address + `/office/` (office PIN): live map, share links, today's routes
+(km, fuel cost), shop agreements, audits and fuel settings.
 ```
 python -m src.server.app --seed-demo     # server only (http://localhost:8000), sample shops + PINs on first run
 python -m src.server.app --new-pin 2     # new PIN for staff member 2 (or: office)

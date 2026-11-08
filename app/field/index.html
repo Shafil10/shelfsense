@@ -78,10 +78,12 @@ function render() {
   const opts = S.shops.map(s => '<option value="' + s.id + '"' + (s.id === (S.upload?.shop ?? S.visitShop) ? " selected" : "") + ">" + esc(s.name) + "</option>").join("");
   app.innerHTML =
     '<header><b>' + esc(S.me.name) + '</b><span class="grow"></span><button id="logout">Log out</button></header>' +
+    (S.me.role !== "staff" ? '<section class="card"><h2>Route tracking</h2><p class="muted">Tracking and automatic check-in are for riders. ' +
+      'Log in with a rider\'s PIN to test them. The office view is at <a href="/office/">/office/</a>.</p></section>' :
     '<section class="card"><div class="row"><h2>Route tracking</h2><span id="trk" class="chip ' + (S.tracking ? "ok" : "warn") + '">' + (S.tracking ? "On" : "Off") + "</span></div>" +
     '<p class="muted">Keep this page open while you ride: you are checked in and out at shops automatically.</p>' +
     '<button id="track" class="' + (S.tracking ? "danger" : "primary") + '">' + (S.tracking ? "Stop tracking" : "Start tracking") + "</button>" +
-    '<p class="muted" id="fix">' + fixText() + '</p><p id="here">' + hereText() + '</p><div class="log" id="log">' + logHtml() + "</div></section>" +
+    '<p class="muted" id="fix">' + fixText() + '</p><p id="here">' + hereText() + '</p><div class="log" id="log">' + logHtml() + "</div></section>") +
     '<section class="card"><h2>Fridge video</h2><p class="muted">Film the whole fridge slowly from top to bottom, about 1 m away, 15-30 s.</p>' +
     '<select id="shop">' + opts + '</select><label class="btn primary" for="vid">Record video</label>' +
     '<input id="vid" type="file" accept="video/*" capture="environment" hidden>' + uploadHtml() + "</section>";
@@ -164,7 +166,7 @@ document.addEventListener("change", e => {
   if (e.target.id !== "vid" || !e.target.files[0]) return;
   const file = e.target.files[0], shop = +$("shop").value;
   if (file.size > 300e6) { S.upload = { stage: "error", error: "Video is too large (max 300 MB). Record a shorter one." }; return render(); }
-  const q = new URLSearchParams({ shop: shopName(shop), captured: new Date(file.lastModified || Date.now()).toISOString() });
+  const q = new URLSearchParams({ shop: shopName(shop), shop_id: shop, captured: new Date(file.lastModified || Date.now()).toISOString() });
   if (S.fix) { q.set("lat", S.fix.lat); q.set("lon", S.fix.lon); q.set("acc", S.fix.acc); }
   S.upload = { stage: "uploading", pct: 0, shop };
   render();

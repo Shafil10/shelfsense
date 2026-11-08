@@ -44,12 +44,13 @@ from urllib.parse import parse_qs, urlparse
 
 import yaml
 
-from src.server.db import DB
+from src.server.db import DB, dist_m
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG = ROOT / "configs" / "config.yaml"
 SITE = ROOT / "app" / "mockup" / "site"
 FIELD = ROOT / "app" / "field"
+OFFICE = ROOT / "app" / "office"
 SESSION_HOURS = 12
 MAX_FAILS, LOCK_SEC = 5, 300  # 5 wrong PINs from one address -> wait 5 minutes
 UPLOADS = ROOT / "data" / "uploads"
@@ -155,7 +156,8 @@ class Store:
             raise ValueError("upload ended early")
         meta = {"id": uid, "video": video.name, "bytes": length, "status": "queued", "received_utc": now_utc(),
                 "shop": shop, "rep": (who or {}).get("name") or qs.get("rep", [""])[0],
-                "staff_id": (who or {}).get("staff_id"), "captured_utc": qs.get("captured", [""])[0],
+                "staff_id": (who or {}).get("staff_id"), "shop_id": int(num(qs, "shop_id")) if num(qs, "shop_id") else None,
+                "captured_utc": qs.get("captured", [""])[0],
                 "gps": {"lat": num(qs, "lat"), "lon": num(qs, "lon"), "accuracy_m": num(qs, "acc")}}
         self.write_meta(meta)
         self.jobs.put(uid)
@@ -175,7 +177,8 @@ class Store:
             try:
                 report = self.run_audit(self.uploads / meta["video"])
                 # the capture details from the phone go into the report, next to the pipeline's own checks
-                report["capture"] = {k: meta[k] for k in ("shop", "rep", "captured_utc", "received_utc", "gps")}
+                report["capture"] = {k: meta.get(k) for k in ("shop", "shop_id", "rep", "captured_utc", "received_utc", "gps")}
+                self.location_check(report, meta)
                 out = self.reports / Path(meta["video"]).stem / "audit.json"
                 out.parent.mkdir(parents=True, exist_ok=True)
                 out.write_text(json.dumps(report, indent=1), encoding="utf-8")
@@ -184,6 +187,25 @@ class Store:
             except Exception as e:  # a bad file must not stop the worker
                 meta.update(status="failed", error=f"{type(e).__name__}: {e}")
             self.write_meta(meta)
+
+    def location_check(self, report, meta):
+        """Was the video filmed at the shop it is for? Adds the distance and, when far or unknown, a flag."""
+        t, shop, gps = self.cfg["tracking"], self.db.shop(meta.get("shop_id")) if meta.get("shop_id") else None, meta["gps"]
+        if not shop:
+            return
+        flags = report["integrity"]["flags"]
+        if gps.get("lat") is None:
+            flags.append({"check": "location", "severity": "warning", "detail": "the video was sent without a GPS position"})
+        else:
+            d = round(dist_m(gps["lat"], gps["lon"], shop["lat"], shop["lon"]))
+            report["capture"]["distance_to_shop_m"] = d
+            if d > t["video_far_m"]:
+                flags.append({"check": "location", "severity": "critical",
+                              "detail": f"filmed {d / 1000:.1f} km from {shop['name']}: probably another place"})
+            elif d > t["video_max_distance_m"]:
+                flags.append({"check": "location", "severity": "warning", "detail": f"filmed {d} m from {shop['name']}"})
+        report["integrity"]["verdict"] = ("re-audit" if any(f["severity"] == "critical" for f in flags)
+                                          else "review" if flags else "ok")
 
     def report(self, uid):
         meta = self.read_meta(uid)
@@ -229,7 +251,9 @@ def make_handler(store, site=SITE):
         def translate_path(self, path):
             # /reports/... -> data/reports/ (evidence, login needed), /field/... -> the phone app, else the dashboard.
             # SimpleHTTPRequestHandler drops ".." parts, so no path can leave its folder.
-            for prefix, folder in (("/reports/", store.reports), ("/field/", FIELD)):
+            if path.startswith("/track/"):  # every share link shows the same page; its script reads the token
+                return str(OFFICE / "track.html")
+            for prefix, folder in (("/reports/", store.reports), ("/field/", FIELD), ("/office/", OFFICE)):
                 if path.startswith(prefix):
                     base, self.directory = self.directory, str(folder)
                     try:
@@ -311,6 +335,14 @@ def make_handler(store, site=SITE):
             url = urlparse(self.path)
             if self.auth_routes("GET", url.path):
                 return
+            if url.path in ("/office", "/field"):  # a typed address without the final slash
+                self.send_response(301)
+                self.send_header("Location", url.path + "/")
+                self.end_headers()
+                return
+            if url.path.startswith("/api/track/"):  # public: a share link needs no login, only a valid token
+                t = store.db.tracked(url.path.rsplit("/", 1)[1])
+                return self.send_json(t if t else {"error": "this link has expired or is not valid"}, 200 if t else 404)
             if url.path.startswith("/api/") or url.path.startswith("/reports/"):
                 who = self.session()
                 if not self.allowed("GET", url.path, who):
@@ -340,6 +372,13 @@ def make_handler(store, site=SITE):
                 return self.send_json([{**db.route(s["id"], day), "name": s["name"]} for s in db.staff()])
             if url.path == "/api/events":
                 return self.send_json(db.events_since(int(qs.get("after") or 0)))
+            m = re.fullmatch(r"/api/shops/(\d+)/agreements", url.path)
+            if m:
+                return self.send_json(db.agreements(int(m.group(1))))
+            if url.path == "/api/settings":
+                return self.send_json({"fuel": db.fuel()})
+            if url.path == "/api/shares":
+                return self.send_json(db.shares())
             if url.path.startswith("/api/"):
                 return self.send_json({"error": "not found"}, 404)
             return super().do_GET()
@@ -369,6 +408,8 @@ def make_handler(store, site=SITE):
                         raise ValueError("bad coordinates")
                     acc = float(d["acc"]) if d.get("acc") is not None else None
                     # staff always ping as themselves; the office may send a ping for anyone (testing)
+                    if who["role"] != "staff" and "staff_id" not in d:
+                        raise ValueError("tracking is for riders: log in with a rider's PIN")
                     staff_id = who["staff_id"] if who["role"] == "staff" else int(d["staff_id"])
                     return self.send_json({"ok": True, "events": db.ping(staff_id, lat, lon, acc)})
                 if url.path == "/api/shops":
@@ -385,6 +426,15 @@ def make_handler(store, site=SITE):
                 if url.path == "/api/staff":
                     d = self.read_json()
                     return self.send_json({"id": db.add_staff(str(d["name"])[:60], str(d.get("phone", ""))[:20])}, 201)
+                if url.path == "/api/settings":
+                    d = self.read_json().get("fuel", {})
+                    return self.send_json({"fuel": db.set_fuel(d.get("km_per_litre"), d.get("price_per_litre_tk"))})
+                if url.path == "/api/shares":
+                    d = self.read_json()
+                    return self.send_json(db.new_share(int(d["staff_id"]), float(d.get("hours", 10))), 201)
+                if url.path == "/api/shares/end":
+                    db.end_share(str(self.read_json().get("token", "")))
+                    return self.send_json({"ok": True})
                 if url.path == "/api/ask":
                     d = self.read_json()
                     meta = store.read_meta(str(d.get("id", "")))

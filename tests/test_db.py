@@ -100,6 +100,37 @@ def test_pins_are_hashed_unique_and_replaceable(db):
         db.new_pin("staff", 999)
 
 
+def test_fuel_settings_override_the_config(db):
+    assert db.fuel() == {"km_per_litre": 40, "price_per_litre_tk": 130}
+    assert db.set_fuel(km_per_litre=45) == {"km_per_litre": 45.0, "price_per_litre_tk": 130}
+    with pytest.raises(ValueError):
+        db.set_fuel(price_per_litre_tk=0)
+    db.ping(db.rahim, *SHOP_A, acc=5, t=t(0))
+    db.ping(db.rahim, *SHOP_B, acc=5, t=t(10))
+    r = db.route(db.rahim, "2026-11-09")
+    assert r["fuel_cost_tk"] == round(r["km"] / 45 * 130, 1)
+
+
+def test_share_links(db):
+    s = db.new_share(db.rahim, 2)
+    assert db.tracked(s["token"]) == {"name": "Rahim", "expires": s["expires"], "position": None, "at_shop": None}
+    from datetime import datetime, timezone
+    db.ping(db.rahim, *SHOP_A, acc=5, t=datetime.now(timezone.utc).isoformat(timespec="seconds"))
+    shown = db.tracked(s["token"])
+    assert shown["position"]["lat"] == SHOP_A[0] and shown["at_shop"] == "Shwapno, Mirpur 10"
+    assert [x["name"] for x in db.shares()] == ["Rahim"]
+    db.end_share(s["token"])
+    assert db.tracked(s["token"]) is None and db.shares() == []
+    assert db.tracked("made-up") is None
+    old = db.new_share(db.rahim, 1)
+    db.x("UPDATE shares SET expires='2020-01-01T00:00:00+00:00' WHERE token=?", (old["token"],))
+    assert db.tracked(old["token"]) is None                                   # expired
+    with pytest.raises(ValueError):
+        db.new_share(db.rahim, 0)
+    with pytest.raises(KeyError):
+        db.new_share(999, 2)
+
+
 def test_latest_positions_and_events(db):
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")

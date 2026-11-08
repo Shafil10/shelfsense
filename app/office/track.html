@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#050A13">
+<title>Live location · ShelfSense</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+/* Public share link: one rider's live position, nothing else. Opened as /track/<token>, no login. */
+:root { --bg: #050A13; --card: #0E192B; --line: rgba(130, 180, 255, .16); --fg: #E7F0FF; --muted: #8399B8; --ok: #3CF0A8; color-scheme: dark; }
+@media (prefers-color-scheme: light) { :root { --bg: #EDF2FA; --card: #FFFFFF; --line: rgba(30, 70, 140, .16); --fg: #0B1830; --muted: #50627E; --ok: #0E9A63; color-scheme: light; } }
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.45 system-ui, "Segoe UI", "Noto Sans Bengali", sans-serif; display: flex; flex-direction: column; }
+header { padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--card); }
+header b { font-size: 1.1rem; } .muted { color: var(--muted); font-size: .85rem; } .ok { color: var(--ok); font-weight: 600; }
+#map { flex: 1; z-index: 0; }
+@media (prefers-color-scheme: dark) { #map .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.85) contrast(.9); } }
+</style>
+</head>
+<body>
+<header><b id="name">Live location</b><div id="info" class="muted">Loading…</div></header>
+<div id="map"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+"use strict";
+const token = location.pathname.split("/").filter(Boolean).pop();
+const map = L.map("map").setView([23.81, 90.37], 13);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }).addTo(map);
+let marker = null, circle = null, centred = false;
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+async function tick() {
+  const r = await fetch("/api/track/" + encodeURIComponent(token));
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { document.getElementById("info").textContent = d.error || "This link is not valid."; return clearInterval(timer); }
+  document.getElementById("name").textContent = d.name;
+  const p = d.position;
+  document.getElementById("info").innerHTML = (d.at_shop ? '<span class="ok">At ' + esc(d.at_shop) + "</span> · " : "") +
+    (p ? "Last update " + new Date(p.t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "No position yet") +
+    " · link valid until " + new Date(d.expires).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  if (!p) return;
+  const ll = [p.lat, p.lon];
+  if (!marker) {
+    circle = L.circle(ll, { radius: p.acc || 20, weight: 1, color: "#9D7BFF", fillOpacity: .12, interactive: false }).addTo(map);
+    marker = L.circleMarker(ll, { radius: 9, color: "#fff", weight: 2, fillColor: "#9D7BFF", fillOpacity: 1 }).addTo(map);
+  } else { marker.setLatLng(ll); circle.setLatLng(ll).setRadius(p.acc || 20); }
+  if (!centred) { map.setView(ll, 16); centred = true; }
+}
+const timer = setInterval(tick, 10000);
+tick();
+</script>
+</body>
+</html>

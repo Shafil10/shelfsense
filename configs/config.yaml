@@ -78,6 +78,8 @@ tracking:                  # delivery visits from GPS (src/server/db.py)
   gps_max_accuracy_m: 50   # worse fixes never change a visit and are not counted as distance
   min_step_m: 10           # smaller moves are GPS jitter, not travel
   max_speed_kmh: 90        # faster jumps between two fixes are GPS errors (motorcycle in Dhaka)
+  video_max_distance_m: 200  # a fridge video filmed farther from its shop gets a warning...
+  video_far_m: 1000          # ...and farther than this a critical flag (re-audit): probably another place
   fuel:                    # PLACEHOLDERS: NutriCoco to set their real numbers
     km_per_litre: 40       # motorcycle
     price_per_litre_tk: 130

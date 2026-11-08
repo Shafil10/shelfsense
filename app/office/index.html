@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#050A13">
+<title>ShelfSense Office</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+/* NutriCoco office: live map + share links, today's routes and visits, shops and their agreements, audits, fuel settings. */
+:root { --bg: #050A13; --card: #0E192B; --line: rgba(130, 180, 255, .16); --fg: #E7F0FF; --muted: #8399B8;
+  --accent: #2EE6FF; --on-accent: #02121A; --ok: #3CF0A8; --warn: #FFC24B; --bad: #FF5C7C; --rider: #9D7BFF; color-scheme: dark; }
+@media (prefers-color-scheme: light) { :root { --bg: #EDF2FA; --card: #FFFFFF; --line: rgba(30, 70, 140, .16); --fg: #0B1830;
+  --muted: #50627E; --accent: #0090C4; --on-accent: #FFFFFF; --ok: #0E9A63; --warn: #B07000; --bad: #D6334F; --rider: #6A4DF0; color-scheme: light; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, "Segoe UI", "Noto Sans Bengali", sans-serif; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+header b { font-size: 1.1rem; } .grow { flex: 1; }
+nav { display: flex; gap: 4px; flex-wrap: wrap; }
+nav button { border: 0; background: transparent; padding: 8px 12px; border-radius: 10px; color: var(--muted); font-weight: 600; }
+nav button[aria-current="page"] { background: var(--card); color: var(--accent); }
+main { max-width: 1200px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 800px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+h2 { margin: 0; font-size: 1rem; } .muted { color: var(--muted); font-size: .85rem; }
+button, .btn { font: inherit; border: 1px solid var(--line); background: transparent; color: var(--fg); border-radius: 10px; padding: 8px 12px; font-weight: 600; cursor: pointer; }
+.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+input, select { font: inherit; color: inherit; background: transparent; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; min-width: 0; }
+select option { background: var(--card); }
+.form { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; align-items: end; }
+.form label { display: flex; flex-direction: column; gap: 4px; font-size: .8rem; color: var(--muted); }
+.tablewrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { color: var(--muted); font-weight: 600; } td.r, th.r { text-align: right; }
+tr.click { cursor: pointer; } tr.click:hover { background: rgba(120, 180, 255, .06); }
+.chip { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: .78rem; font-weight: 600; border: 1px solid currentColor; }
+.ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+#map { height: 460px; border-radius: 12px; border: 1px solid var(--line); z-index: 0; }
+@media (prefers-color-scheme: dark) { #map .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.85) contrast(.9); } }
+.feed { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow: auto; }
+.feed div { padding: 8px 10px; border-radius: 10px; background: rgba(120, 180, 255, .06); font-size: .85rem; }
+.thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
+.thumbs img { width: 100%; height: 170px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); display: block; }
+.toast { position: fixed; right: 16px; bottom: 16px; max-width: 360px; background: var(--accent); color: var(--on-accent); padding: 12px 14px; border-radius: 12px; font-weight: 600; z-index: 10; }
+.login { max-width: 360px; margin: 10vh auto; }
+#pin { font-size: 1.5rem; letter-spacing: .4em; text-align: center; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.kpi { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+.kpi b { display: block; font-size: 1.5rem; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast" hidden></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const TABS = [["live", "Live"], ["today", "Today"], ["shops", "Shops"], ["audits", "Audits"], ["settings", "Settings"]];
+const S = { me: null, tab: "live", shops: [], staff: [], day: localDay(), lastEvent: 0, map: null, layers: null, timer: null, audit: null, edit: null, history: null };
+
+function localDay(d = new Date()) { return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
+const time = t => t ? new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—";
+const dateTime = t => t ? new Date(t).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—";
+const verdictChip = v => '<span class="chip ' + ({ ok: "ok", review: "warn", "re-audit": "bad" }[v] || "") + '">' + esc(v || "…") + "</span>";
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, { credentials: "same-origin", ...opts, headers: opts.body ? { "Content-Type": "application/json" } : {} });
+  const data = await r.json().catch(() => ({}));
+  if (r.status === 401 && path !== "/api/login") { S.me = null; render(); }
+  if (!r.ok) throw new Error(data.error || r.statusText);
+  return data;
+}
+const post = (path, body) => api(path, { method: "POST", body: JSON.stringify(body) });
+function toast(text) {
+  const el = $("toast"); el.textContent = text; el.hidden = false;
+  clearTimeout(toast.t); toast.t = setTimeout(() => { el.hidden = true; }, 5000);
+  if ("Notification" in window && Notification.permission === "granted" && document.hidden) new Notification("ShelfSense", { body: text });
+}
+
+/* ---------- shell ---------- */
+async function render() {
+  clearInterval(S.timer); S.timer = null;
+  const app = $("app");
+  if (!S.me) {
+    S.map = null;
+    app.innerHTML = '<form class="card login" id="loginForm"><h2>ShelfSense office</h2><p class="muted">Office PIN</p>' +
+      '<input id="pin" inputmode="numeric" maxlength="6" required><button class="primary" type="submit">Log in</button><p class="muted" id="err"></p></form>';
+    return $("pin").focus();
+  }
+  if (S.me.role !== "office") {
+    app.innerHTML = '<div class="card login"><h2>Office only</h2><p class="muted">This PIN belongs to a rider. Riders use <a href="/field/">/field/</a>.</p><button id="logout">Log out</button></div>';
+    return;
+  }
+  app.innerHTML = '<header><b>ShelfSense · NutriCoco</b><nav>' + TABS.map(([k, label]) => '<button data-tab="' + k + '"' + (S.tab === k ? ' aria-current="page"' : "") + ">" + label + "</button>").join("") +
+    '</nav><span class="grow"></span><span class="muted">' + esc(S.me.name) + '</span><button id="logout">Log out</button></header><main id="main"></main>';
+  S.map = null;
+  [S.shops, S.staff] = await Promise.all([api("/api/shops"), api("/api/staff")]);
+  await VIEWS[S.tab]();
+}
+const VIEWS = {};
+
+/* ---------- Live: map of riders and shops, check-in feed, share links ---------- */
+VIEWS.live = async function () {
+  $("main").innerHTML = '<div class="grid"><section class="card"><div class="form" style="grid-template-columns:1fr auto"><h2>Riders now</h2><span class="muted" id="upd"></span></div><div id="map"></div>' +
+    '<p class="muted">Purple: riders (last position in the past 10 minutes). Circles: shops, the check-in area.</p></section>' +
+    '<div style="display:flex;flex-direction:column;gap:16px"><section class="card"><h2>Check-ins and check-outs</h2><div class="feed" id="feed"><p class="muted">Nothing yet today.</p></div></section>' +
+    '<section class="card"><h2>Share a live location</h2><p class="muted">Anyone with the link sees this rider\'s position until it expires. No PIN needed.</p>' +
+    '<div class="form"><label>Rider<select id="shareStaff">' + S.staff.map(s => '<option value="' + s.id + '">' + esc(s.name) + "</option>").join("") + "</select></label>" +
+    '<label>Valid for<select id="shareHours"><option value="2">2 hours</option><option value="10" selected>10 hours (a work day)</option><option value="24">1 day</option><option value="168">7 days</option></select></label>' +
+    '<button class="primary" id="share">Create link</button></div><div id="shares"></div></section></div></div>';
+  const map = S.map = L.map("map", { scrollWheelZoom: false });
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }).addTo(map);
+  S.shops.forEach(s => {
+    L.circle([s.lat, s.lon], { radius: s.radius_m, color: "#2EE6FF", weight: 1, fillOpacity: .08 }).addTo(map);
+    L.circleMarker([s.lat, s.lon], { radius: 6, color: "#2EE6FF", fillOpacity: .9 }).bindTooltip(esc(s.name)).addTo(map);
+  });
+  if (S.shops.length) map.fitBounds(S.shops.map(s => [s.lat, s.lon]), { padding: [40, 40], maxZoom: 15 });
+  S.layers = L.layerGroup().addTo(map);
+  S.lastEvent = 0; S.feed = [];
+  await Promise.all([liveTick(true), showShares()]);
+  S.timer = setInterval(() => liveTick(false), 10000);
+};
+async function liveTick(first) {
+  const [pos, events] = await Promise.all([api("/api/locations"), api("/api/events?after=" + S.lastEvent)]);
+  if (!S.map) return;
+  S.layers.clearLayers();
+  pos.forEach(p => L.circleMarker([p.lat, p.lon], { radius: 8, color: "#fff", weight: 2, fillColor: "#9D7BFF", fillOpacity: 1 })
+    .bindTooltip(esc(p.name) + " · " + time(p.t), { permanent: true, direction: "top", offset: [0, -8] }).addTo(S.layers));
+  $("upd").textContent = pos.length + " rider(s) on the map · updated " + time(new Date());
+  const today = localDay();
+  events.forEach(e => {
+    S.lastEvent = Math.max(S.lastEvent, e.id);
+    if (localDay(new Date(e.t)) !== today) return;
+    const text = time(e.t) + " · " + e.staff + (e.kind === "check_in" ? " arrived at " : " left ") + e.shop;
+    S.feed.unshift(text);
+    if (!first) toast(text);
+  });
+  if (S.feed.length) $("feed").innerHTML = S.feed.map(f => "<div>" + esc(f) + "</div>").join("");
+}
+async function showShares() {
+  const list = await api("/api/shares");
+  $("shares").innerHTML = list.length ? '<div class="tablewrap"><table><tr><th>Rider</th><th>Until</th><th></th></tr>' + list.map(s =>
+    "<tr><td>" + esc(s.name) + "</td><td>" + dateTime(s.expires) + '</td><td class="r"><button data-copy="' + esc(location.origin + "/track/" + s.token) + '">Copy link</button> <button data-end="' + esc(s.token) + '">End</button></td></tr>').join("") +
+    "</table></div>" : "";
+}
+
+/* ---------- Today: routes (time, km, fuel) and visits ---------- */
+VIEWS.today = async function () {
+  const [routes, visits, settings] = await Promise.all([api("/api/routes?day=" + S.day), api("/api/visits?day=" + S.day), api("/api/settings")]);
+  const active = routes.filter(r => r.pings);
+  const sum = k => active.reduce((a, r) => a + (r[k] || 0), 0);
+  const f = settings.fuel;
+  $("main").innerHTML = '<section class="card"><div class="form" style="grid-template-columns:auto 1fr"><label>Day<input type="date" id="day" value="' + S.day + '"></label>' +
+    '<p class="muted">Fuel: ' + f.price_per_litre_tk + " Tk/litre ÷ " + f.km_per_litre + " km/litre = " + (f.price_per_litre_tk / f.km_per_litre).toFixed(2) + ' Tk per km (change in Settings).</p></div></section>' +
+    '<div class="kpis"><div class="kpi"><span class="muted">Riders out</span><b>' + active.length + '</b></div><div class="kpi"><span class="muted">Shop visits</span><b>' + visits.length +
+    '</b></div><div class="kpi"><span class="muted">Distance</span><b>' + sum("km").toFixed(1) + ' km</b></div><div class="kpi"><span class="muted">Fuel cost</span><b>' + sum("fuel_cost_tk").toFixed(0) + " Tk</b></div></div>" +
+    '<section class="card"><h2>Routes</h2><div class="tablewrap"><table><tr><th>Rider</th><th>Start</th><th>End</th><th class="r">Route time</th><th class="r">km</th><th class="r">Fuel (Tk)</th><th class="r">Shops</th><th class="r">Avg min / shop</th><th>Last check-out</th></tr>' +
+    (active.length ? active.map(r => "<tr><td>" + esc(r.name) + "</td><td>" + time(r.start) + "</td><td>" + time(r.end) + '</td><td class="r">' + Math.round(r.route_minutes) + ' min</td><td class="r">' + r.km.toFixed(1) +
+      '</td><td class="r">' + r.fuel_cost_tk.toFixed(0) + '</td><td class="r">' + r.shops + '</td><td class="r">' + (r.avg_minutes_in_shop ?? "—") + "</td><td>" + time(r.last_check_out) + "</td></tr>").join("")
+      : '<tr><td colspan="9" class="muted">No rider tracked on this day.</td></tr>') + "</table></div></section>" +
+    '<section class="card"><h2>Shop visits</h2><div class="tablewrap"><table><tr><th>Rider</th><th>Shop</th><th>Check-in</th><th>Check-out</th><th class="r">Minutes</th><th class="r">Check-in distance</th></tr>' +
+    (visits.length ? visits.map(v => "<tr><td>" + esc(v.staff) + "</td><td>" + esc(v.shop) + "</td><td>" + time(v.check_in) + "</td><td>" + (v.check_out ? time(v.check_out) : '<span class="chip ok">in the shop</span>') +
+      '</td><td class="r">' + (v.minutes ?? "—") + '</td><td class="r">' + Math.round(v.in_dist_m) + " m</td></tr>").join("")
+      : '<tr><td colspan="6" class="muted">No visits on this day.</td></tr>') + "</table></div></section>";
+};
+
+/* ---------- Shops: agreements (changeable, with history) ---------- */
+const ZONES = [["front", "Front row"], ["left", "Left side"], ["middle", "Middle"], ["right", "Right side"], ["any", "Anywhere in the fridge"]];
+const zoneName = z => (ZONES.find(x => x[0] === z) || [z, z || "—"])[1];
+VIEWS.shops = async function () {
+  const rows = S.shops.map(s => {
+    const a = s.agreement;
+    return '<tr><td><b>' + esc(s.name) + "</b>" + (s.sample ? ' <span class="chip">sample</span>' : "") + '<div class="muted">' + esc(s.area) + " · " + esc(s.channel) + "</div></td>" +
+      (a ? '<td class="r">' + a.cups + "</td><td>" + (a.shelf ? "Shelf " + a.shelf : "—") + "</td><td>" + zoneName(a.zone) + '</td><td class="r">' + (a.daily_fee_tk ?? "—") + "</td><td>" + dateTime(a.valid_from) + "</td>"
+         : '<td colspan="5" class="muted">No agreement yet</td>') +
+      '<td class="r"><button data-edit="' + s.id + '">Change</button> <button data-hist="' + s.id + '">History</button></td></tr>' +
+      (S.edit === s.id ? '<tr><td colspan="7">' + agreementForm(s) + "</td></tr>" : "") +
+      (S.history?.id === s.id ? '<tr><td colspan="7">' + historyTable(S.history.rows) + "</td></tr>" : "");
+  }).join("");
+  $("main").innerHTML = '<section class="card"><h2>Shops and agreements</h2><p class="muted">The agreement is what the fridge check compares against. Every change is kept with its date, so each audit uses the agreement valid on that day.</p>' +
+    '<div class="tablewrap"><table><tr><th>Shop</th><th class="r">Cups</th><th>Shelf</th><th>Position</th><th class="r">Fee (Tk/day)</th><th>Since</th><th></th></tr>' + rows + "</table></div></section>" +
+    '<section class="card"><h2>Add a shop</h2><form class="form" id="shopForm"><label>Name<input name="name" required></label><label>Area<input name="area" placeholder="Mirpur 10"></label>' +
+    '<label>Type<select name="channel"><option value="retail">Retail shop</option><option value="supermarket">Supermarket</option><option value="pandamart">Pandamart</option><option value="reseller">Reseller</option></select></label>' +
+    '<label>Latitude<input name="lat" id="nlat" required inputmode="decimal"></label><label>Longitude<input name="lon" id="nlon" required inputmode="decimal"></label>' +
+    '<label>Check-in radius (m)<input name="radius_m" type="number" value="80" min="20" max="500"></label><button type="button" id="here">Use my location</button><button class="primary" type="submit">Add shop</button></form>' +
+    '<p class="muted">Tip: stand at the shop entrance and press "Use my location", or copy the coordinates from OpenStreetMap / Google Maps.</p></section>';
+};
+function agreementForm(s) {
+  const a = s.agreement || {};
+  return '<form class="form" id="agForm" data-shop="' + s.id + '"><label>Cups to show<input name="cups" type="number" min="0" value="' + (a.cups ?? 4) + '" required></label>' +
+    '<label>Shelf (1 = top)<input name="shelf" type="number" min="1" max="10" value="' + (a.shelf ?? "") + '"></label>' +
+    '<label>Position<select name="zone">' + ZONES.map(([k, v]) => '<option value="' + k + '"' + (a.zone === k ? " selected" : "") + ">" + v + "</option>").join("") + "</select></label>" +
+    '<label>Fee (Tk/day)<input name="daily_fee_tk" type="number" min="0" value="' + (a.daily_fee_tk ?? "") + '"></label><label>Note<input name="note" placeholder="e.g. new contract from 1 Dec"></label>' +
+    '<button class="primary" type="submit">Save new agreement</button><button type="button" data-edit="">Cancel</button></form>';
+}
+function historyTable(rows) {
+  return rows.length ? '<table><tr><th>Valid from</th><th class="r">Cups</th><th>Shelf</th><th>Position</th><th class="r">Fee</th><th>By</th><th>Note</th></tr>' + rows.map(a =>
+    "<tr><td>" + dateTime(a.valid_from) + '</td><td class="r">' + a.cups + "</td><td>" + (a.shelf ?? "—") + "</td><td>" + zoneName(a.zone) + '</td><td class="r">' + (a.daily_fee_tk ?? "—") + "</td><td>" + esc(a.created_by) + "</td><td>" + esc(a.note) + "</td></tr>").join("") + "</table>"
+    : '<p class="muted">No agreement yet.</p>';
+}
+
+/* ---------- Audits: fridge videos, verdicts, evidence, distance to the shop, AI questions ---------- */
+VIEWS.audits = async function () {
+  const list = await api("/api/audits");
+  const rows = list.map(m => '<tr class="click" data-audit="' + esc(m.id) + '"><td>' + dateTime(m.received_utc) + "</td><td>" + esc(m.rep) + "</td><td>" + esc(m.shop) + "</td><td>" +
+    (m.status === "done" ? verdictChip(m.verdict) : '<span class="chip">' + esc(m.status) + "</span>") + "</td></tr>").join("");
+  $("main").innerHTML = '<div class="grid"><section class="card"><h2>Fridge videos</h2><div class="tablewrap"><table><tr><th>Received</th><th>Rider</th><th>Shop</th><th>Result</th></tr>' +
+    (rows || '<tr><td colspan="4" class="muted">No videos yet.</td></tr>') + '</table></div></section><section class="card" id="auditDetail"><p class="muted">Click a video to see its evidence.</p></section></div>';
+  if (S.audit) showAudit(S.audit);
+};
+async function showAudit(id) {
+  S.audit = id;
+  const m = await api("/api/audits/" + id), r = m.report, el = $("auditDetail");
+  if (!el) return;
+  if (!r) { el.innerHTML = "<h2>" + esc(m.shop) + "</h2><p>" + (m.status === "failed" ? '<span class="bad">Could not read the video: ' + esc(m.error) + "</span>" : "Still being checked…") + "</p>"; return; }
+  const c = r.capture || {}, folder = encodeURIComponent(m.video.replace(/\.[^.]+$/, ""));
+  el.innerHTML = "<h2>" + esc(m.shop) + " " + verdictChip(r.integrity.verdict) + '</h2><p class="muted">' + esc(m.rep) + " · " + dateTime(m.received_utc) + " · " + r.video.width + "×" + r.video.height + ", " + r.video.duration_sec + " s · checked in " + r.processing_sec + " s</p>" +
+    (r.integrity.flags.length ? r.integrity.flags.map(f => '<p class="' + (f.severity === "critical" ? "bad" : "warn") + '">' + esc(f.detail) + "</p>").join("") : '<p class="ok">All integrity checks passed.</p>') +
+    "<p>Filmed " + (c.distance_to_shop_m != null ? "<b>" + c.distance_to_shop_m + " m</b> from the shop" : "at an unknown distance from the shop") + " · " + r.summary.keyframes + " sharp frames · products per frame: median " +
+    r.summary.products_per_keyframe.median + ", max " + r.summary.products_per_keyframe.max + "</p>" +
+    '<p class="muted">Counting NutriCoco cups against the agreement starts when the cup detector is trained on NutriCoco\'s photos.</p>' +
+    '<div class="thumbs">' + r.keyframes.map(k => '<a href="/reports/' + folder + "/" + k.evidence + '" target="_blank" rel="noopener"><img loading="lazy" alt="Frame at ' + k.time_sec + ' s" src="/reports/' + folder + "/" + k.evidence + '"></a>').join("") + "</div>" +
+    '<form class="form" id="askForm" style="grid-template-columns:1fr auto"><input id="q" placeholder="Ask about this audit (English or বাংলা)"><button class="primary">Ask</button></form><p id="answer"></p>';
+}
+
+/* ---------- Settings: fuel cost per km ---------- */
+VIEWS.settings = async function () {
+  const f = (await api("/api/settings")).fuel;
+  $("main").innerHTML = '<section class="card"><h2>Fuel cost</h2><p class="muted">Used for the fuel cost of each route: km ÷ km per litre × price per litre.</p>' +
+    '<form class="form" id="fuelForm"><label>Motorcycle: km per litre<input name="km_per_litre" type="number" step="0.1" min="1" value="' + f.km_per_litre + '"></label>' +
+    '<label>Fuel price (Tk per litre)<input name="price_per_litre_tk" type="number" step="0.5" min="1" value="' + f.price_per_litre_tk + '"></label><button class="primary">Save</button></form>' +
+    '<p id="perKm">= ' + (f.price_per_litre_tk / f.km_per_litre).toFixed(2) + " Tk per km</p></section>";
+};
+
+/* ---------- events ---------- */
+document.addEventListener("click", async e => {
+  const t = e.target.closest("button, tr.click"); if (!t) return;
+  try {
+    if (t.dataset.tab) { S.tab = t.dataset.tab; S.edit = S.history = null; return render(); }
+    if (t.id === "logout") { await post("/api/logout", {}); S.me = null; return render(); }
+    if (t.id === "share") { const r = await post("/api/shares", { staff_id: +$("shareStaff").value, hours: +$("shareHours").value }); await copy(location.origin + "/track/" + r.token); return showShares(); }
+    if (t.dataset.copy) return copy(t.dataset.copy);
+    if (t.dataset.end) { await post("/api/shares/end", { token: t.dataset.end }); return showShares(); }
+    if ("edit" in t.dataset) { S.edit = t.dataset.edit ? +t.dataset.edit : null; S.history = null; return VIEWS.shops(); }
+    if (t.dataset.hist) { const id = +t.dataset.hist; S.history = S.history?.id === id ? null : { id, rows: await api("/api/shops/" + id + "/agreements") }; S.edit = null; return VIEWS.shops(); }
+    if (t.id === "here") navigator.geolocation.getCurrentPosition(p => { $("nlat").value = p.coords.latitude.toFixed(6); $("nlon").value = p.coords.longitude.toFixed(6); }, err => toast("Location: " + err.message), { enableHighAccuracy: true });
+    if (t.dataset.audit) return showAudit(t.dataset.audit);
+  } catch (err) { toast(err.message); }
+});
+async function copy(text) {
+  try { await navigator.clipboard.writeText(text); toast("Link copied: " + text); } catch (e) { prompt("Copy this link:", text); }
+}
+document.addEventListener("submit", async e => {
+  e.preventDefault();
+  const f = e.target, data = Object.fromEntries(new FormData(f));
+  try {
+    if (f.id === "loginForm") { S.me = await post("/api/login", { pin: $("pin").value }); if ("Notification" in window && Notification.permission === "default") Notification.requestPermission(); return render(); }
+    if (f.id === "agForm") {
+      await post("/api/shops/" + f.dataset.shop + "/agreement", { cups: +data.cups, shelf: data.shelf ? +data.shelf : null, zone: data.zone,
+        daily_fee_tk: data.daily_fee_tk ? +data.daily_fee_tk : null, note: data.note, by: S.me.name });
+      S.edit = null; S.shops = await api("/api/shops"); toast("Agreement saved"); return VIEWS.shops();
+    }
+    if (f.id === "shopForm") {
+      await post("/api/shops", { name: data.name, area: data.area, channel: data.channel, lat: +data.lat, lon: +data.lon, radius_m: +data.radius_m });
+      S.shops = await api("/api/shops"); toast("Shop added. Now set its agreement."); return VIEWS.shops();
+    }
+    if (f.id === "fuelForm") { await post("/api/settings", { fuel: { km_per_litre: +data.km_per_litre, price_per_litre_tk: +data.price_per_litre_tk } }); toast("Fuel settings saved"); return VIEWS.settings(); }
+    if (f.id === "askForm") {
+      const q = $("q").value.trim(); if (!q) return;
+      $("answer").textContent = "Thinking… (the AI runs on the PC, about 10-30 s)";
+      const r = await post("/api/ask", { id: S.audit, question: q });
+      $("answer").textContent = r.answer + " (" + r.model + ", " + r.seconds + " s)";
+    }
+  } catch (err) { if (f.id === "loginForm") $("err").textContent = err.message; else if (f.id === "askForm") $("answer").textContent = err.message; else toast(err.message); }
+});
+document.addEventListener("change", e => { if (e.target.id === "day") { S.day = e.target.value; VIEWS.today(); } });
+
+(async () => { try { S.me = await api("/api/me"); } catch (e) { /* not logged in */ } render(); })();
+</script>
+</body>
+</html>

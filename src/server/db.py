@@ -37,6 +37,9 @@ CREATE TABLE IF NOT EXISTS visits (
   check_in TEXT NOT NULL, check_out TEXT, in_lat REAL, in_lon REAL, in_dist_m REAL, how TEXT DEFAULT 'geofence');
 CREATE TABLE IF NOT EXISTS events (
   id INTEGER PRIMARY KEY, t TEXT NOT NULL, staff_id INTEGER, shop_id INTEGER, visit_id INTEGER, kind TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS shares (
+  token TEXT PRIMARY KEY, staff_id INTEGER NOT NULL REFERENCES staff(id), expires TEXT NOT NULL, created TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS access (
   id INTEGER PRIMARY KEY, role TEXT NOT NULL, staff_id INTEGER REFERENCES staff(id), salt TEXT NOT NULL,
   pin_hash TEXT NOT NULL, created TEXT NOT NULL);
@@ -103,6 +106,59 @@ class DB:
         for s in out:
             s["agreement"] = self.agreement(s["id"])
         return out
+
+    def shop(self, shop_id):
+        rows = self.q("SELECT * FROM shops WHERE id=?", (shop_id,))
+        return rows[0] if rows else None
+
+    def agreements(self, shop_id):
+        """Every version of a shop's agreement, newest first."""
+        return self.q("SELECT * FROM agreements WHERE shop_id=? ORDER BY valid_from DESC, id DESC", (shop_id,))
+
+    # ---------- settings the office can change (fuel); the config file gives the defaults ----------
+    def fuel(self):
+        f = dict(self.cfg["fuel"])
+        f.update({r["key"]: r["value"] for r in self.q("SELECT * FROM settings WHERE key IN ('km_per_litre','price_per_litre_tk')")})
+        return f
+
+    def set_fuel(self, km_per_litre=None, price_per_litre_tk=None):
+        for key, value in (("km_per_litre", km_per_litre), ("price_per_litre_tk", price_per_litre_tk)):
+            if value is not None:
+                if float(value) <= 0:
+                    raise ValueError(f"{key} must be more than 0")
+                self.x("INSERT INTO settings (key, value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                       (key, float(value)))
+        return self.fuel()
+
+    # ---------- shareable live-location links (no login, expire) ----------
+    def new_share(self, staff_id, hours):
+        if not self.q("SELECT id FROM staff WHERE id=?", (staff_id,)):
+            raise KeyError(f"unknown staff {staff_id}")
+        if not 0 < float(hours) <= 24 * 7:
+            raise ValueError("a link can last from a few minutes up to 7 days")
+        token, now = secrets.token_urlsafe(16), datetime.now(timezone.utc)
+        self.x("INSERT INTO shares (token, staff_id, expires, created) VALUES (?,?,?,?)",
+               (token, staff_id, iso(now + timedelta(hours=float(hours))), iso(now)))
+        return {"token": token, "expires": iso(now + timedelta(hours=float(hours)))}
+
+    def shares(self):
+        return self.q("SELECT sh.*, s.name FROM shares sh JOIN staff s ON s.id=sh.staff_id WHERE sh.expires>? ORDER BY sh.created DESC",
+                      (iso(datetime.now(timezone.utc)),))
+
+    def end_share(self, token):
+        self.x("DELETE FROM shares WHERE token=?", (token,))
+
+    def tracked(self, token):
+        """What a share link shows: name, last position, current shop. None when unknown or expired."""
+        rows = self.q("SELECT sh.*, s.name FROM shares sh JOIN staff s ON s.id=sh.staff_id WHERE sh.token=? AND sh.expires>?",
+                      (token, iso(datetime.now(timezone.utc))))
+        if not rows:
+            return None
+        sid = rows[0]["staff_id"]
+        last = self.q("SELECT t, lat, lon, acc FROM pings WHERE staff_id=? AND ok=1 ORDER BY t DESC, id DESC LIMIT 1", (sid,))
+        v = self.open_visit(sid)
+        return {"name": rows[0]["name"], "expires": rows[0]["expires"], "position": last[0] if last else None,
+                "at_shop": self.shop(v["shop_id"])["name"] if v else None}
 
     # ---------- staff and GPS ----------
     def add_staff(self, name, phone="", vehicle="motorcycle"):
@@ -226,7 +282,7 @@ class DB:
             prev = p
         visits = self.visits(day, staff_id)
         done = [v["minutes"] for v in visits if v["minutes"] is not None]
-        fuel = self.cfg["fuel"]
+        fuel = self.fuel()
         return {
             "staff_id": staff_id, "day": day, "pings": len(pings),
             "start": pings[0]["t"] if pings else None, "end": pings[-1]["t"] if pings else None,

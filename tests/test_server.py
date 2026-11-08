@@ -16,7 +16,8 @@ from src.server import app
 
 CFG = {"server": {"max_upload_mb": 1, "location_ttl_sec": 600, "device": "cpu"},
        "tracking": {"utc_offset_hours": 6, "geofence_radius_m": 80, "checkout_factor": 1.5, "gps_max_accuracy_m": 50, "min_step_m": 10,
-                    "max_speed_kmh": 90, "fuel": {"km_per_litre": 40, "price_per_litre_tk": 130}},
+                    "max_speed_kmh": 90, "video_max_distance_m": 200, "video_far_m": 1000,
+                    "fuel": {"km_per_litre": 40, "price_per_litre_tk": 130}},
        "assistant": {"url": "http://localhost:1", "model": "m", "num_ctx": 512, "timeout_sec": 1}}
 
 
@@ -135,6 +136,53 @@ def test_login_required_and_roles(server):
     assert call(f"{base}/api/audits/{up['id']}", op=rahim)[1]["rep"] == "Rahim Uddin"
     post(f"{base}/api/logout", {}, op=rahim)
     assert call(f"{base}/api/me", op=rahim)[0] == 401
+
+
+def test_video_location_check(server):
+    base, _ = server
+    _, shops = call(f"{base}/api/shops")
+    s = shops[0]
+    cases = {"near": (s["lat"] + 0.0005, s["lon"]), "far": (s["lat"] + 0.003, s["lon"]), "elsewhere": (s["lat"] + 0.05, s["lon"]), "none": None}
+    results = {}
+    for name, ll in cases.items():
+        q = f"shop={name}&shop_id={s['id']}" + (f"&lat={ll[0]}&lon={ll[1]}&acc=10" if ll else "")
+        _, up = call(f"{base}/api/audits?{q}", b"video", "video/mp4")
+        meta = wait_done(base, up["id"])
+        results[name] = (meta["report"]["integrity"]["verdict"], meta["report"]["capture"].get("distance_to_shop_m"))
+    assert results["near"][0] == "ok" and 50 < results["near"][1] < 60          # 56 m: fine
+    assert results["far"][0] == "review" and 300 < results["far"][1] < 350       # 334 m: warning
+    assert results["elsewhere"][0] == "re-audit" and results["elsewhere"][1] > 5000
+    assert results["none"] == ("review", None)                                   # no GPS sent
+
+
+def test_share_link_is_public_but_only_with_a_valid_token(server):
+    base, _ = server
+    _, staff = call(f"{base}/api/staff")
+    code, s = post(f"{base}/api/shares", {"staff_id": staff[0]["id"], "hours": 2})
+    assert code == 201
+    anon = urllib.request.build_opener()
+    code, shown = call(f"{base}/api/track/{s['token']}", op=anon)
+    assert code == 200 and shown["name"] == staff[0]["name"] and shown["position"] is None
+    assert call(f"{base}/api/track/not-a-token", op=anon)[0] == 404
+    assert call(f"{base}/api/shares", op=anon)[0] == 401                         # listing links needs the office
+    page = urllib.request.urlopen(f"{base}/track/{s['token']}", timeout=5)
+    assert page.status == 200 and b"/api/track/" in page.read()
+    post(f"{base}/api/shares/end", {"token": s["token"]})
+    assert call(f"{base}/api/track/{s['token']}", op=anon)[0] == 404
+
+
+def test_settings_and_agreement_history(server):
+    base, _ = server
+    assert call(f"{base}/api/settings")[1]["fuel"]["km_per_litre"] == 40
+    assert post(f"{base}/api/settings", {"fuel": {"km_per_litre": 50}})[1]["fuel"]["km_per_litre"] == 50.0
+    assert post(f"{base}/api/settings", {"fuel": {"km_per_litre": -1}})[0] == 400
+    post(f"{base}/api/shops/1/agreement", {"cups": 6, "by": "office"})
+    hist = call(f"{base}/api/shops/1/agreements")[1]
+    assert [a["cups"] for a in hist] == [6, 4]
+    _, rahim = login(base, PINS["Rahim Uddin"])
+    assert call(f"{base}/api/settings", op=rahim)[0] == 403
+    code, body = post(f"{base}/api/locations", {"lat": 23.8, "lon": 90.36})   # the office has no route to track
+    assert code == 400 and "rider" in body["error"]
 
 
 def test_wrong_pins_lock_out(server):
