@@ -85,7 +85,14 @@ Double-click `start_demo.bat`: it starts the ShelfSense server and a free Cloudf
 (created on the first start). The rider is checked in and out at shops automatically while tracking is on,
 and a recorded fridge video is audited on the PC within seconds. Close both windows to stop the link.
 NutriCoco's office view is the same address + `/office/` (office PIN): live map, share links, today's routes
-(km, fuel cost), shop agreements, audits and fuel settings.
+(km, fuel cost), Pandamart POs and reseller orders, stock and restock alerts, shop agreements, audits and settings.
+Resellers order at `/order/` with their own PIN. The rider app can be installed on Android and iPhone
+("Install the app" / Share -> Add to Home Screen), works in English and Bangla, and keeps videos, GPS points and
+deliveries made without signal until the connection is back.
+```
+python scripts/demo_day.py --pin <office PIN>   # fill the demo with a rider's last 2 hours, for showing the screens
+python -m src.detection.train_nutricoco --export <Roboflow export> --regroup   # once NutriCoco's photos are labelled
+```
 ```
 python -m src.server.app --seed-demo     # server only (http://localhost:8000), sample shops + PINs on first run
 python -m src.server.app --new-pin 2     # new PIN for staff member 2 (or: office)
