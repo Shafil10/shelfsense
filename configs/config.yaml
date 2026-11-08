@@ -75,6 +75,7 @@ tracking:                  # delivery visits from GPS (src/server/db.py)
   utc_offset_hours: 6      # Bangladesh time: a "day" in reports runs from midnight to midnight local time
   geofence_radius_m: 80    # default circle around a shop; check-in when inside
   checkout_factor: 1.5     # check-out only when farther than radius x this (no flicker at the edge)
+  min_visit_minutes: 2     # shorter stays are "passed by" (riding past a shop), not counted as visits
   gps_max_accuracy_m: 50   # worse fixes never change a visit and are not counted as distance
   min_step_m: 10           # smaller moves are GPS jitter, not travel
   max_speed_kmh: 90        # faster jumps between two fixes are GPS errors (motorcycle in Dhaka)

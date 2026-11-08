@@ -235,6 +235,8 @@ class DB:
         if not ok:
             return []
         events, v = [], self.open_visit(staff_id)
+        if v and t <= v["check_in"]:  # a late point from before the visit began (offline outbox) changes nothing
+            return events
         if v:
             shop = self.q("SELECT * FROM shops WHERE id=?", (v["shop_id"],))[0]
             if dist_m(lat, lon, shop["lat"], shop["lon"]) <= shop["radius_m"] * self.cfg["checkout_factor"]:
@@ -277,6 +279,8 @@ class DB:
         rows = self.q(sql + " ORDER BY v.check_in", args)
         for r in rows:
             r["minutes"] = round((parse(r["check_out"]) - parse(r["check_in"])).total_seconds() / 60, 1) if r["check_out"] else None
+            # riding past a shop also enters its circle: a short stay is shown as "passed by", not as a visit
+            r["passed_by"] = r["minutes"] is not None and r["minutes"] < self.cfg["min_visit_minutes"]
         return rows
 
     def route(self, staff_id, day):
@@ -290,7 +294,8 @@ class DB:
                     continue
                 km += d / 1000
             prev = p
-        visits = self.visits(day, staff_id)
+        all_visits = self.visits(day, staff_id)
+        visits = [v for v in all_visits if not v["passed_by"]]
         done = [v["minutes"] for v in visits if v["minutes"] is not None]
         fuel = self.fuel()
         return {
@@ -300,7 +305,7 @@ class DB:
             "km": round(km, 2),
             "fuel_litres": round(km / fuel["km_per_litre"], 3),
             "fuel_cost_tk": round(km / fuel["km_per_litre"] * fuel["price_per_litre_tk"], 1),
-            "visits": len(visits), "shops": len({v["shop_id"] for v in visits}),
+            "visits": len(visits), "shops": len({v["shop_id"] for v in visits}), "passed_by": len(all_visits) - len(visits),
             "avg_minutes_in_shop": round(sum(done) / len(done), 1) if done else None,
             "last_check_out": max((v["check_out"] for v in visits if v["check_out"]), default=None),
         }

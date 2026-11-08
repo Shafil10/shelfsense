@@ -77,7 +77,13 @@ const TX = {
     queued: "waiting", processing: "checking", failed: "could not read", frames: "{k} sharp frames, up to {p} products seen.",
     distance: "Filmed {m} m from the shop.", live: "recorded in the app", file: "chosen from the phone", install: "Install the app",
     iosInstall: "To install: tap Share, then 'Add to Home Screen'.", savedOffline: "No connection: the video is saved and will be sent automatically.",
-    sent: "Video sent. The check takes a few seconds." },
+    sent: "Video sent. The check takes a few seconds.",
+    delivery: "Delivery", deliveryHint: "Enter what you gave the shop and what you took back.", against: "For",
+    noRef: "No PO / order", po: "Pandamart PO {n}", order: "Order #{n} ({s})", delivered: "Delivered", returned: "Taken back",
+    reason: "Reason", saveDelivery: "Save delivery", deliverySaved: "Delivery saved", deliveryQueued: "No connection: the delivery is saved and will be sent automatically.",
+    deliveriesN: "{n} delivery(ies)", onBike: "On my motorcycle today", nothingLoaded: "Nothing loaded today.",
+    loadedLeft: "{l} loaded · {d} delivered · {r} left",
+    reasons: { expired: "Expired", damaged: "Damaged / leaking", not_chilled: "Not kept cold", unsold: "Not sold", wrong_product: "Wrong product", other: "Other" } },
   bn: { title: "শেলফসেন্স ফিল্ড", login: "লগ ইন", pinHint: "নিউট্রিকোকোর দেওয়া ৬ সংখ্যার পিন দিন।", logout: "লগ আউট", lang: "English",
     tracking: "রুট ট্র্যাকিং", on: "চালু", off: "বন্ধ", trackHint: "চলার সময় অ্যাপটি খোলা রাখুন: দোকানে পৌঁছালে ও বের হলে চেক-ইন ও চেক-আউট নিজে থেকেই হবে।",
     start: "ট্র্যাকিং শুরু", stop: "ট্র্যাকিং বন্ধ", waitGps: "GPS-এর অপেক্ষা…", at: "{s}-এ আছেন", checkedIn: "{s}-এ চেক-ইন হয়েছে। ফ্রিজের ভিডিও করতে ভুলবেন না।",
@@ -91,7 +97,13 @@ const TX = {
     queued: "অপেক্ষায়", processing: "পরীক্ষা চলছে", failed: "পড়া যায়নি", frames: "{k}টি পরিষ্কার ছবি, সর্বোচ্চ {p}টি পণ্য দেখা গেছে।",
     distance: "দোকান থেকে {m} মিটার দূরে ভিডিও করা।", live: "অ্যাপে ভিডিও করা", file: "ফোন থেকে বেছে নেওয়া", install: "অ্যাপ ইনস্টল করুন",
     iosInstall: "ইনস্টল করতে: Share চাপুন, তারপর 'Add to Home Screen'।", savedOffline: "ইন্টারনেট নেই: ভিডিও রাখা হয়েছে, সংযোগ ফিরলে নিজে থেকে পাঠানো হবে।",
-    sent: "ভিডিও পাঠানো হয়েছে। পরীক্ষা করতে কয়েক সেকেন্ড লাগবে।" }
+    sent: "ভিডিও পাঠানো হয়েছে। পরীক্ষা করতে কয়েক সেকেন্ড লাগবে।",
+    delivery: "ডেলিভারি", deliveryHint: "দোকানকে কী দিলেন আর কী ফেরত নিলেন তা লিখুন।", against: "কিসের জন্য",
+    noRef: "কোনো PO / অর্ডার নয়", po: "পান্ডামার্ট PO {n}", order: "অর্ডার #{n} ({s})", delivered: "দেওয়া", returned: "ফেরত নেওয়া",
+    reason: "কারণ", saveDelivery: "ডেলিভারি সংরক্ষণ", deliverySaved: "ডেলিভারি সংরক্ষণ হয়েছে", deliveryQueued: "ইন্টারনেট নেই: ডেলিভারি রাখা হয়েছে, সংযোগ ফিরলে নিজে থেকে পাঠানো হবে।",
+    deliveriesN: "{n}টি ডেলিভারি", onBike: "আজ আমার মোটরসাইকেলে", nothingLoaded: "আজ কিছু তোলা হয়নি।",
+    loadedLeft: "{l} তোলা · {d} দেওয়া · {r} বাকি",
+    reasons: { expired: "মেয়াদ শেষ", damaged: "ভাঙা / লিক", not_chilled: "ঠান্ডা রাখা হয়নি", unsold: "বিক্রি হয়নি", wrong_product: "ভুল পণ্য", other: "অন্যান্য" } }
 };
 const VERDICT = { en: { ok: "ok", review: "review", "re-audit": "re-audit" }, bn: { ok: "ঠিক আছে", review: "যাচাই দরকার", "re-audit": "আবার অডিট" } };
 let LANG = localStorage.getItem("ss_lang") === "bn" ? "bn" : "en";
@@ -102,7 +114,8 @@ function t(k, v) { let s = TX[LANG][k] ?? TX.en[k] ?? k; for (const key in v || 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const S = { me: null, shops: [], tracking: false, watch: null, wake: null, fix: null, lastSent: 0, visitShop: null, log: [],
-  outbox: { videos: 0, pings: 0 }, sending: null, mine: [], open: null, install: null };
+  outbox: { videos: 0, pings: 0, deliveries: 0 }, sending: null, mine: [], open: null, install: null,
+  products: [], pos: [], orders: [], bike: null, dshop: null };
 
 async function api(path, opts = {}) {
   const r = await fetch(path, { credentials: "same-origin", ...opts, headers: opts.body ? { "Content-Type": "application/json" } : {} });
@@ -139,7 +152,8 @@ const boxAll = () => box("readonly", s => s.getAll());
 const boxDel = id => box("readwrite", s => s.delete(id));
 async function countOutbox() {
   const all = await boxAll().catch(() => []);
-  S.outbox = { videos: all.filter(i => i.kind === "video").length, pings: all.filter(i => i.kind === "ping").length };
+  S.outbox = { videos: all.filter(i => i.kind === "video").length, pings: all.filter(i => i.kind === "ping").length,
+    deliveries: all.filter(i => i.kind === "delivery").length };
   refresh("outbox", outboxHtml());
 }
 /* Sends everything in the outbox, oldest first: GPS points before newer ones, then videos one at a time. */
@@ -152,6 +166,10 @@ async function flush() {
         try { handleEvents((await api("/api/locations", { method: "POST", body: JSON.stringify(item.data) })).events); }
         catch (e) { if (!e.status) break; }  // no connection: try again later; a refused point (e.g. too old) is dropped
         await boxDel(item.id);
+      } else if (item.kind === "delivery") {
+        try { await api("/api/deliveries", { method: "POST", body: JSON.stringify(item.data) }); toast(t("deliverySaved")); }
+        catch (e) { if (!e.status) break; toast(e.message); }
+        await boxDel(item.id); loadBike();
       } else {
         const r = await upload(item);
         if (r === "offline") break;
@@ -177,7 +195,7 @@ function upload(item) {
   });
 }
 window.addEventListener("online", flush);
-setInterval(() => { if (S.outbox.videos + S.outbox.pings) flush(); }, 30000);
+setInterval(() => { if (S.outbox.videos + S.outbox.pings + S.outbox.deliveries) flush(); }, 30000);
 
 /* ---------- screens ---------- */
 function render() {
@@ -203,6 +221,7 @@ function render() {
     '<select id="shop">' + opts + "</select>" +
     (canRecord ? '<button class="primary" id="record">' + t("recordApp") + "</button>" : "") +
     '<label class="btn' + (canRecord ? "" : " primary") + '" for="vid">' + t("chooseFile") + '</label><input id="vid" type="file" accept="video/*" capture="environment" hidden></section>' +
+    (S.me.role === "staff" && S.products.length ? deliveryHtml() : "") +
     '<div id="outbox">' + outboxHtml() + "</div>" +
     '<section class="card"><h2>' + t("mine") + '</h2><div id="mine" class="log" style="max-height:none">' + mineHtml() + "</div></section>";
 }
@@ -212,10 +231,48 @@ function fixText() {
 }
 function hereText() { return S.visitShop ? '<span class="chip ok">' + esc(t("at", { s: shopName(S.visitShop) })) + "</span>" : ""; }
 function logHtml() { return S.log.map(l => "<div>" + esc(l) + "</div>").join(""); }
+/* Delivery at a shop: delivered and taken-back quantities per product, optionally for a Pandamart PO or a
+   reseller order of that shop; plus what is still on the motorcycle today. */
+function deliveryHtml() {
+  const shop = S.dshop ?? S.visitShop ?? S.shops[0]?.id;
+  const refs = S.pos.filter(p => p.shop_id === shop).map(p => '<option value="po:' + p.id + '">' + esc(t("po", { n: p.number })) + "</option>")
+    .concat(S.orders.filter(o => o.shop_id === shop).map(o => '<option value="order:' + o.id + '">' + esc(t("order", { n: num(o.id), s: o.status })) + "</option>"));
+  const reasons = Object.entries(TX[LANG].reasons).map(([k, v]) => '<option value="' + k + '">' + esc(v) + "</option>").join("");
+  const rows = S.products.map(p => '<div class="row" style="flex-wrap:wrap"><b style="flex-basis:100%">' + esc(p.name) + "</b>" +
+    '<label class="muted">' + t("delivered") + '<input type="number" min="0" inputmode="numeric" name="d' + p.id + '"></label>' +
+    '<label class="muted">' + t("returned") + '<input type="number" min="0" inputmode="numeric" name="r' + p.id + '"></label>' +
+    '<label class="muted">' + t("reason") + '<select name="w' + p.id + '">' + reasons + "</select></label></div>").join("");
+  const bike = S.bike?.items?.filter(i => i.loaded || i.delivered) || [];
+  return '<form class="card" id="deliveryForm"><h2>' + t("delivery") + '</h2><p class="muted">' + t("deliveryHint") + "</p>" +
+    '<select id="dshop">' + S.shops.map(s => '<option value="' + s.id + '"' + (s.id === shop ? " selected" : "") + ">" + esc(s.name) + "</option>").join("") + "</select>" +
+    (refs.length ? '<label class="muted">' + t("against") + '<select name="ref"><option value="">' + t("noRef") + "</option>" + refs.join("") + "</select></label>" : "") +
+    rows + '<button class="primary" type="submit">' + t("saveDelivery") + "</button>" +
+    '<h2 style="margin-top:6px">' + t("onBike") + "</h2>" + (bike.length ? bike.map(i => "<p>" + esc(i.name) + ': <b>' +
+      t("loadedLeft", { l: num(i.loaded), d: num(i.delivered), r: num(i.on_bike) }) + "</b></p>").join("") : '<p class="muted">' + t("nothingLoaded") + "</p>") + "</form>";
+}
+async function loadBike() {
+  if (S.me?.role !== "staff") return;
+  try { S.bike = await api("/api/my-stock"); } catch (e) { /* offline */ }
+}
+async function saveDelivery(form) {
+  const f = new FormData(form), shop = +$("dshop").value, ref = f.get("ref") || "";
+  const items = S.products.map(p => ({ product_id: p.id, delivered: +f.get("d" + p.id) || 0, returned: +f.get("r" + p.id) || 0, return_reason: f.get("w" + p.id) }))
+    .filter(i => i.delivered || i.returned);
+  if (!items.length) return;
+  const data = { shop_id: shop, items, t: new Date().toISOString(),
+    po_id: ref.startsWith("po:") ? +ref.slice(3) : null, order_id: ref.startsWith("order:") ? +ref.slice(6) : null };
+  try { await api("/api/deliveries", { method: "POST", body: JSON.stringify(data) }); toast(t("deliverySaved")); }
+  catch (e) {
+    if (e.status) return toast(e.message);
+    await boxAdd({ kind: "delivery", data }); await countOutbox(); toast(t("deliveryQueued"));
+  }
+  form.reset(); await loadBike(); render();
+}
 function outboxHtml() {
-  const { videos, pings } = S.outbox;
-  if (!videos && !pings && S.sending === null) return "";
-  const parts = [videos && t("videosN", { n: num(videos) }), pings && t("pointsN", { n: num(pings) })].filter(Boolean).join(" · ");
+  const { videos, pings, deliveries } = S.outbox;
+  if (!videos && !pings && !deliveries && S.sending === null) return "";
+  const parts = [videos && t("videosN", { n: num(videos) }), deliveries && t("deliveriesN", { n: num(deliveries) }),
+    pings && t("pointsN", { n: num(pings) })].filter(Boolean).join(" · ");
   return '<section class="card"><div class="row"><h2>' + t("outbox") + '</h2><button class="small" style="flex:0" id="flush">' + t("sendNow") + "</button></div>" +
     "<p>" + parts + "</p>" + (S.sending !== null ? '<div class="bar"><i style="width:' + S.sending + '%"></i></div><p class="muted">' + t("uploading", { p: num(S.sending) }) + "</p>"
       : '<p class="muted">' + t("outboxHint") + "</p>") + "</section>";
@@ -275,8 +332,11 @@ async function onFix(p) {
   S.lastSent = Date.now();
   const data = { lat: fix.lat, lon: fix.lon, acc: fix.acc, t: new Date(fix.t).toISOString() };
   if (S.outbox.pings || S.outbox.videos || !navigator.onLine) { await boxAdd({ kind: "ping", data }); await countOutbox(); return flush(); }
-  try { handleEvents((await api("/api/locations", { method: "POST", body: JSON.stringify(data) })).events); }
-  catch (e) { if (!e.status) { await boxAdd({ kind: "ping", data }); countOutbox(); } }
+  try {
+    const r = await api("/api/locations", { method: "POST", body: JSON.stringify(data) });
+    handleEvents(r.events);
+    if (!r.events.length && r.visit_shop_id !== S.visitShop) { S.visitShop = r.visit_shop_id; S.dshop = null; render(); }
+  } catch (e) { if (!e.status) { await boxAdd({ kind: "ping", data }); countOutbox(); } }
 }
 function handleEvents(events) {
   for (const ev of events || []) {
@@ -284,7 +344,7 @@ function handleEvents(events) {
     if (ev.kind === "check_in") { S.visitShop = ev.shop_id; S.log.unshift(t("logIn", { t: hhmm(ev.t), s: name })); toast(t("checkedIn", { s: name })); }
     else { if (S.visitShop === ev.shop_id) S.visitShop = null; S.log.unshift(t("logOut", { t: hhmm(ev.t), s: name })); toast(t("checkedOut", { s: name })); }
   }
-  if (events && events.length) { refresh("here", hereText()); refresh("log", logHtml()); const sel = $("shop"); if (sel && S.visitShop) sel.value = S.visitShop; }
+  if (events && events.length) { S.dshop = null; render(); }  // the video and delivery forms follow the shop the rider is at
 }
 function distM(a, b) {
   const k = Math.PI / 180, h = Math.sin((b.lat - a.lat) * k / 2) ** 2 + Math.cos(a.lat * k) * Math.cos(b.lat * k) * Math.sin((b.lon - a.lon) * k / 2) ** 2;
@@ -303,7 +363,12 @@ async function queueVideo(blob, source, captured) {
   const query = { shop: shopName(shop), shop_id: shop, source, captured: new Date(captured).toISOString() };
   if (S.fix && Date.now() - S.fix.t < 120000) Object.assign(query, { lat: S.fix.lat, lon: S.fix.lon, acc: S.fix.acc });
   else {  // not tracking: take one fresh position for this video
-    const p = await new Promise(ok => navigator.geolocation ? navigator.geolocation.getCurrentPosition(ok, () => ok(null), { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }) : ok(null));
+    // our own 8 s limit: the browser's timeout only starts after the rider answers the permission question
+    const p = await new Promise(ok => {
+      setTimeout(() => ok(null), 8000);
+      if (navigator.geolocation) navigator.geolocation.getCurrentPosition(ok, () => ok(null), { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 });
+      else ok(null);
+    });
     if (p) Object.assign(query, { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy });
   }
   await boxAdd({ kind: "video", blob, query });
@@ -343,7 +408,9 @@ async function openCamera() {
 }
 
 /* ---------- events ---------- */
+document.addEventListener("change", e => { if (e.target.id === "dshop") { S.dshop = +e.target.value; render(); } });
 document.addEventListener("submit", async e => {
+  if (e.target.id === "deliveryForm") { e.preventDefault(); return saveDelivery(e.target); }
   if (e.target.id !== "loginForm") return;
   e.preventDefault();
   try { S.me = await api("/api/login", { method: "POST", body: JSON.stringify({ pin: $("pin").value }) }); await start(); }
@@ -368,9 +435,17 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("/field/sw.js
 /* The rider's name and the shop list are kept on the phone, so the app also opens without a connection
    (the session itself is an HttpOnly cookie the page cannot read). */
 async function start() {
+  if (S.me.visit_shop_id) S.visitShop = S.me.visit_shop_id;  // already checked in somewhere (app was closed)
   localStorage.setItem("ss_me", JSON.stringify(S.me));
   try { S.shops = await api("/api/shops"); localStorage.setItem("ss_shops", JSON.stringify(S.shops)); }
   catch (e) { if (e.status) throw e; S.shops = JSON.parse(localStorage.getItem("ss_shops") || "[]"); }
+  if (S.me.role === "staff") {
+    try {
+      [S.products, S.pos, S.orders] = await Promise.all([api("/api/products"), api("/api/pos"), api("/api/orders")]);
+      localStorage.setItem("ss_products", JSON.stringify(S.products));
+      await loadBike();
+    } catch (e) { S.products = JSON.parse(localStorage.getItem("ss_products") || "[]"); }
+  }
   render(); await countOutbox(); flush(); loadMine();
 }
 (async () => {

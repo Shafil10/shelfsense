@@ -51,6 +51,8 @@ def main():
     ap.add_argument("--mobile", action="store_true", help="phone emulation (390 px wide)")
     ap.add_argument("--wait", type=float, default=2.5, help="seconds to wait after each step")
     ap.add_argument("--fake-camera", action="store_true", help="Edge's test-pattern camera, allowed without asking")
+    ap.add_argument("--geo", help="fake GPS position 'lat,lon' (location allowed without asking)")
+    ap.add_argument("--no-shot", action="store_true", help="only run the steps (e.g. a recording test)")
     args = ap.parse_args()
     port = 9333
     extra = ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] if args.fake_camera else []
@@ -69,19 +71,26 @@ def main():
         page.send("Runtime.enable")
         w, h = (390, 844) if args.mobile else (args.width, args.height)
         page.send("Emulation.setDeviceMetricsOverride", width=w, height=h, deviceScaleFactor=2 if args.mobile else 1, mobile=args.mobile)
+        if args.geo:
+            lat, lon = map(float, args.geo.split(","))
+            page.send("Browser.grantPermissions", permissions=["geolocation", "notifications"])
+            page.send("Emulation.setGeolocationOverride", latitude=lat, longitude=lon, accuracy=10)
         page.send("Page.navigate", url=args.url)
         time.sleep(args.wait)
         if args.pin:
-            page.js(f"document.getElementById('pin').value = '{args.pin}'; document.querySelector('form').requestSubmit(); true")
+            # no PIN box = still logged in from an earlier run (the session cookie stays in the test profile)
+            page.js(f"(() => {{ const el = document.getElementById('pin'); if (!el) return false; "
+                    f"el.value = '{args.pin}'; el.form.requestSubmit(); return true; }})()")
             time.sleep(args.wait)
         for sel in args.click:
             found = page.js(f"(() => {{ const el = document.querySelector({json.dumps(sel)}); if (el) el.click(); return !!el; }})()")
             if not found:
                 print("not found:", sel)
             time.sleep(args.wait)
-        shot = page.send("Page.captureScreenshot", format="png", captureBeyondViewport=True)
-        Path(args.out).write_bytes(base64.b64decode(shot["data"]))
-        print("saved", args.out, "| JavaScript errors:", page.errors or "none")
+        if not args.no_shot:
+            shot = page.send("Page.captureScreenshot", format="png", captureBeyondViewport=not args.mobile)
+            Path(args.out).write_bytes(base64.b64decode(shot["data"]))
+        print("saved" if not args.no_shot else "done", args.out, "| JavaScript errors:", page.errors or "none")
     finally:
         edge.terminate()
 

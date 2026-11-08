@@ -16,7 +16,7 @@ import pytest
 from src.server import app
 
 CFG = {"server": {"max_upload_mb": 1, "location_ttl_sec": 600, "device": "cpu"},
-       "tracking": {"utc_offset_hours": 6, "geofence_radius_m": 80, "checkout_factor": 1.5, "gps_max_accuracy_m": 50, "min_step_m": 10,
+       "tracking": {"utc_offset_hours": 6, "geofence_radius_m": 80, "checkout_factor": 1.5, "min_visit_minutes": 2, "gps_max_accuracy_m": 50, "min_step_m": 10,
                     "max_speed_kmh": 90, "video_max_distance_m": 200, "video_far_m": 1000, "video_max_age_hours": 6,
                     "fuel": {"km_per_litre": 40, "price_per_litre_tk": 130}},
        "business": {"restock_days": 2},
@@ -126,7 +126,8 @@ def test_login_required_and_roles(server):
     assert post(f"{base}/api/shops/1/agreement", {"cups": 9}, op=rahim)[0] == 403
     # staff always ping as themselves, whatever staff_id they send
     _, r = post(f"{base}/api/locations", {"staff_id": 999, "lat": 23.8069, "lon": 90.3687, "acc": 5}, op=rahim)
-    assert r["events"][0]["kind"] == "check_in"
+    assert r["events"][0]["kind"] == "check_in" and r["visit_shop_id"] == r["events"][0]["shop_id"]
+    assert call(f"{base}/api/me", op=rahim)[1]["visit_shop_id"] == r["events"][0]["shop_id"]   # the app learns it on opening
     _, locs = call(f"{base}/api/locations")
     assert [p["name"] for p in locs] == ["Rahim Uddin"]
     # staff see only their own uploads

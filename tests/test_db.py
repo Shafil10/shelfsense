@@ -1,4 +1,4 @@
-"""Tests for src/server/db.py: agreements over time, geofence check-in/out, route km and fuel.
+﻿"""Tests for src/server/db.py: agreements over time, geofence check-in/out, route km and fuel.
 
 Run from the project root:  python -m pytest -v
 """
@@ -6,7 +6,7 @@ import pytest
 
 from src.server.db import DB, dist_m
 
-CFG = {"utc_offset_hours": 6, "geofence_radius_m": 80, "checkout_factor": 1.5, "gps_max_accuracy_m": 50, "min_step_m": 10,
+CFG = {"utc_offset_hours": 6, "geofence_radius_m": 80, "checkout_factor": 1.5, "min_visit_minutes": 2, "gps_max_accuracy_m": 50, "min_step_m": 10,
        "max_speed_kmh": 90, "fuel": {"km_per_litre": 40, "price_per_litre_tk": 130}}
 SHOP_A = (23.8069, 90.3687)
 SHOP_B = (23.8189, 90.3655)  # about 1.4 km north
@@ -54,6 +54,23 @@ def test_geofence_check_in_and_out(db):
     assert [e["kind"] for e in ev] == ["check_out"]
     v = db.visits("2026-11-09")
     assert len(v) == 1 and v[0]["minutes"] == 12.0 and v[0]["shop"] == "Shwapno, Mirpur 10"
+
+
+def test_riding_past_a_shop_is_not_a_visit(db):
+    db.ping(db.rahim, *SHOP_A, acc=5, t=t(0, 0))
+    db.ping(db.rahim, SHOP_A[0] + 0.004, SHOP_A[1], acc=5, t=t(1, 0))     # 1 min later, 440 m on: passed by
+    db.ping(db.rahim, *SHOP_B, acc=5, t=t(6))
+    db.ping(db.rahim, SHOP_B[0] + 0.004, SHOP_B[1], acc=5, t=t(16))         # 10 min in shop B: a visit
+    v = db.visits("2026-11-09")
+    assert [(x["shop_id"], x["passed_by"]) for x in v] == [(db.a, True), (db.b, False)]
+    r = db.route(db.rahim, "2026-11-09")
+    assert (r["visits"], r["passed_by"], r["avg_minutes_in_shop"]) == (1, 1, 10.0)
+
+
+def test_late_point_from_before_the_visit_changes_nothing(db):
+    db.ping(db.rahim, *SHOP_A, acc=5, t=t(10))
+    assert db.ping(db.rahim, *SHOP_B, acc=5, t=t(2)) == []      # recorded before the check-in, arrives later
+    assert db.open_visit(db.rahim)["shop_id"] == db.a
 
 
 def test_walking_from_one_shop_into_the_next(db):

@@ -60,7 +60,9 @@ tr.click { cursor: pointer; } tr.click:hover { background: rgba(120, 180, 255, .
 "use strict";
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const TABS = [["live", "Live"], ["today", "Today"], ["shops", "Shops"], ["audits", "Audits"], ["settings", "Settings"]];
+const TABS = [["live", "Live"], ["today", "Today"], ["orders", "Orders"], ["stock", "Stock"], ["shops", "Shops"], ["audits", "Audits"], ["settings", "Settings"]];
+const REASONS = { expired: "Expired", damaged: "Damaged / leaking", not_chilled: "Not kept cold", unsold: "Not sold", wrong_product: "Wrong product", other: "Other" };
+const STATUS = ["new", "confirmed", "dispatched", "delivered", "cancelled"];
 const S = { me: null, tab: "live", shops: [], staff: [], day: localDay(), lastEvent: 0, map: null, layers: null, timer: null, audit: null, edit: null, history: null };
 
 function localDay(d = new Date()) { return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
@@ -157,15 +159,15 @@ VIEWS.today = async function () {
   const f = settings.fuel;
   $("main").innerHTML = '<section class="card"><div class="form" style="grid-template-columns:auto 1fr"><label>Day<input type="date" id="day" value="' + S.day + '"></label>' +
     '<p class="muted">Fuel: ' + f.price_per_litre_tk + " Tk/litre ÷ " + f.km_per_litre + " km/litre = " + (f.price_per_litre_tk / f.km_per_litre).toFixed(2) + ' Tk per km (change in Settings).</p></div></section>' +
-    '<div class="kpis"><div class="kpi"><span class="muted">Riders out</span><b>' + active.length + '</b></div><div class="kpi"><span class="muted">Shop visits</span><b>' + visits.length +
+    '<div class="kpis"><div class="kpi"><span class="muted">Riders out</span><b>' + active.length + '</b></div><div class="kpi"><span class="muted">Shop visits</span><b>' + visits.filter(v => !v.passed_by).length +
     '</b></div><div class="kpi"><span class="muted">Distance</span><b>' + sum("km").toFixed(1) + ' km</b></div><div class="kpi"><span class="muted">Fuel cost</span><b>' + sum("fuel_cost_tk").toFixed(0) + " Tk</b></div></div>" +
     '<section class="card"><h2>Routes</h2><div class="tablewrap"><table><tr><th>Rider</th><th>Start</th><th>End</th><th class="r">Route time</th><th class="r">km</th><th class="r">Fuel (Tk)</th><th class="r">Shops</th><th class="r">Avg min / shop</th><th>Last check-out</th></tr>' +
     (active.length ? active.map(r => "<tr><td>" + esc(r.name) + "</td><td>" + time(r.start) + "</td><td>" + time(r.end) + '</td><td class="r">' + Math.round(r.route_minutes) + ' min</td><td class="r">' + r.km.toFixed(1) +
-      '</td><td class="r">' + r.fuel_cost_tk.toFixed(0) + '</td><td class="r">' + r.shops + '</td><td class="r">' + (r.avg_minutes_in_shop ?? "—") + "</td><td>" + time(r.last_check_out) + "</td></tr>").join("")
+      '</td><td class="r">' + r.fuel_cost_tk.toFixed(0) + '</td><td class="r">' + r.shops + (r.passed_by ? ' <span class="muted">(+' + r.passed_by + " passed by)</span>" : "") + '</td><td class="r">' + (r.avg_minutes_in_shop ?? "—") + "</td><td>" + time(r.last_check_out) + "</td></tr>").join("")
       : '<tr><td colspan="9" class="muted">No rider tracked on this day.</td></tr>') + "</table></div></section>" +
     '<section class="card"><h2>Shop visits</h2><div class="tablewrap"><table><tr><th>Rider</th><th>Shop</th><th>Check-in</th><th>Check-out</th><th class="r">Minutes</th><th class="r">Check-in distance</th></tr>' +
     (visits.length ? visits.map(v => "<tr><td>" + esc(v.staff) + "</td><td>" + esc(v.shop) + "</td><td>" + time(v.check_in) + "</td><td>" + (v.check_out ? time(v.check_out) : '<span class="chip ok">in the shop</span>') +
-      '</td><td class="r">' + (v.minutes ?? "—") + '</td><td class="r">' + Math.round(v.in_dist_m) + " m</td></tr>").join("")
+      '</td><td class="r">' + (v.passed_by ? '<span class="chip">passed by</span>' : (v.minutes ?? "—")) + '</td><td class="r">' + Math.round(v.in_dist_m) + " m</td></tr>").join("")
       : '<tr><td colspan="6" class="muted">No visits on this day.</td></tr>') + "</table></div></section>";
 };
 
@@ -185,7 +187,7 @@ VIEWS.shops = async function () {
   $("main").innerHTML = '<section class="card"><h2>Shops and agreements</h2><p class="muted">The agreement is what the fridge check compares against. Every change is kept with its date, so each audit uses the agreement valid on that day.</p>' +
     '<div class="tablewrap"><table><tr><th>Shop</th><th class="r">Cups</th><th>Shelf</th><th>Position</th><th class="r">Fee (Tk/day)</th><th>Since</th><th></th></tr>' + rows + "</table></div></section>" +
     '<section class="card"><h2>Add a shop</h2><form class="form" id="shopForm"><label>Name<input name="name" required></label><label>Area<input name="area" placeholder="Mirpur 10"></label>' +
-    '<label>Type<select name="channel"><option value="retail">Retail shop</option><option value="supermarket">Supermarket</option><option value="pandamart">Pandamart</option><option value="reseller">Reseller</option></select></label>' +
+    '<label>Type<select name="channel"><option value="retail">Retail shop</option><option value="supermarket">Supermarket</option><option value="pandamart">Pandamart</option><option value="reseller">Reseller (wholesale)</option></select></label>' +
     '<label>Latitude<input name="lat" id="nlat" required inputmode="decimal"></label><label>Longitude<input name="lon" id="nlon" required inputmode="decimal"></label>' +
     '<label>Check-in radius (m)<input name="radius_m" type="number" value="80" min="20" max="500"></label><button type="button" id="here">Use my location</button><button class="primary" type="submit">Add shop</button></form>' +
     '<p class="muted">Tip: stand at the shop entrance and press "Use my location", or copy the coordinates from OpenStreetMap / Google Maps.</p></section>';
@@ -228,13 +230,82 @@ async function showAudit(id) {
     '<form class="form" id="askForm" style="grid-template-columns:1fr auto"><input id="q" placeholder="Ask about this audit (English or বাংলা)"><button class="primary">Ask</button></form><p id="answer"></p>';
 }
 
-/* ---------- Settings: fuel cost per km ---------- */
+/* ---------- Orders: reseller (wholesale) orders and Pandamart purchase orders ---------- */
+const qtyInputs = (prefix, products) => products.map(p => '<label>' + esc(p.name) + '<input type="number" min="0" name="' + prefix + p.id + '"></label>').join("");
+const itemList = items => items.map(i => esc(i.name) + " × " + (i.qty ?? i.delivered)).join("<br>");
+const itemsFrom = (data, prefix, products) => products.map(p => ({ product_id: p.id, qty: +data[prefix + p.id] || 0 })).filter(i => i.qty > 0);
+VIEWS.orders = async function () {
+  const [orders, pos, products] = await Promise.all([api("/api/orders"), api("/api/pos"), api("/api/products")]);
+  S.products = products;
+  const resellers = S.shops.filter(s => s.channel === "reseller"), outlets = S.shops.filter(s => s.channel === "pandamart");
+  const resultCls = { complete: "ok", "over-delivered": "warn", "under-delivered": "bad", "not delivered": "" };
+  $("main").innerHTML =
+    '<section class="card"><h2>Wholesale: reseller orders</h2><p class="muted">Resellers order in their own page (/order/, with a reseller PIN from Settings). Orders taken by phone or WhatsApp can be entered below.</p>' +
+    '<div class="tablewrap"><table><tr><th>Placed</th><th>Reseller</th><th>Products</th><th class="r">Total (Tk)</th><th>Wanted by</th><th>Status</th></tr>' +
+    (orders.length ? orders.map(o => "<tr><td>" + dateTime(o.t) + "</td><td>" + esc(o.shop) + "<div class='muted'>" + esc(o.placed_by) + "</div></td><td>" + itemList(o.items) +
+      '</td><td class="r">' + o.total_tk.toLocaleString() + "</td><td>" + esc(o.wanted_date || "—") + '</td><td><select data-order="' + o.id + '">' +
+      STATUS.map(s => "<option" + (s === o.status ? " selected" : "") + ">" + s + "</option>").join("") + "</select></td></tr>").join("")
+      : '<tr><td colspan="6" class="muted">No orders yet.</td></tr>') + "</table></div>" +
+    '<form class="form" id="orderForm"><label>Reseller<select name="shop_id">' + resellers.map(s => '<option value="' + s.id + '">' + esc(s.name) + "</option>").join("") + "</select></label>" +
+    qtyInputs("q", products) + '<label>Wanted by<input type="date" name="wanted_date"></label><button class="primary"' + (resellers.length ? "" : " disabled") + ">Add order</button></form>" +
+    (resellers.length ? "" : '<p class="muted">Add resellers in Shops (type "Reseller").</p>') + "</section>" +
+    '<section class="card"><h2>Pandamart purchase orders</h2><p class="muted">Enter each PO Pandamart sends. Riders pick the PO when they deliver, so over- and under-delivery show up here.</p>' +
+    '<div class="tablewrap"><table><tr><th>PO</th><th>Outlet</th><th>Date</th><th>Product</th><th class="r">Ordered</th><th class="r">Delivered</th><th class="r">Returned</th><th class="r">Difference</th><th>Result</th><th></th></tr>' +
+    (pos.length ? pos.map(p => p.items.map((i, k) => "<tr>" + (k ? "<td></td><td></td><td></td>" : "<td><b>" + esc(p.number) + "</b></td><td>" + esc(p.shop) + "</td><td>" + esc(p.po_date) + (p.due_date ? "<div class='muted'>due " + esc(p.due_date) + "</div>" : "") + "</td>") +
+      "<td>" + esc(i.name) + '</td><td class="r">' + i.ordered + '</td><td class="r">' + i.delivered + '</td><td class="r">' + i.returned + '</td><td class="r ' + (i.difference > 0 ? "warn" : i.difference < 0 ? "bad" : "ok") + '">' + (i.difference > 0 ? "+" : "") + i.difference + "</td>" +
+      (k ? "<td></td><td></td>" : '<td><span class="chip ' + resultCls[p.result] + '">' + esc(p.result) + "</span></td><td>" + '<button data-po="' + p.id + '" data-status="' + (p.status === "open" ? "closed" : "open") + '">' + (p.status === "open" ? "Close" : "Reopen") + "</button></td>") + "</tr>").join("")).join("")
+      : '<tr><td colspan="10" class="muted">No purchase orders yet.</td></tr>') + "</table></div>" +
+    '<form class="form" id="poForm"><label>PO number<input name="number" required placeholder="e.g. PM-1001"></label><label>Outlet<select name="shop_id">' +
+    outlets.map(s => '<option value="' + s.id + '">' + esc(s.name) + "</option>").join("") + "</select></label>" + qtyInputs("q", products) +
+    '<label>PO date<input type="date" name="po_date" value="' + localDay() + '"></label><label>Due<input type="date" name="due_date"></label><button class="primary"' + (outlets.length ? "" : " disabled") + ">Add PO</button></form>" +
+    (outlets.length ? "" : '<p class="muted">Add Pandamart outlets in Shops (type "Pandamart").</p>') + "</section>";
+};
+
+/* ---------- Stock: restock alerts, factory, motorcycles, returns, today's deliveries ---------- */
+VIEWS.stock = async function () {
+  const [stock, alerts, products, deliveries, dispatches] = await Promise.all([api("/api/stock?day=" + S.day), api("/api/restock"), api("/api/products"),
+    api("/api/deliveries?day=" + S.day), api("/api/dispatches?day=" + S.day)]);
+  S.products = products;
+  $("main").innerHTML =
+    '<section class="card"><h2>Restock alerts</h2>' + (alerts.length ? alerts.map(a => '<p><b>' + esc(a.shop) + '</b> <span class="muted">' + esc(a.channel) + "</span> · " +
+      a.reasons.map(esc).join("; ") + "</p>").join("") : '<p class="ok">No shop needs goods right now.</p>') + "</section>" +
+    '<div class="grid"><section class="card"><h2>Factory stock</h2><div class="tablewrap"><table><tr><th>Product</th><th class="r">Made</th><th class="r">Dispatched</th><th class="r">In factory</th><th class="r">Delivered to shops</th><th class="r">Returned</th></tr>' +
+    stock.factory.map(f => "<tr><td>" + esc(f.name) + '</td><td class="r">' + f.made + '</td><td class="r">' + f.dispatched + '</td><td class="r"><b>' + f.in_factory + '</b></td><td class="r">' + f.delivered + '</td><td class="r">' + f.returned + "</td></tr>").join("") +
+    '</table></div><form class="form" id="prodForm"><label>Product<select name="product_id">' + products.map(p => '<option value="' + p.id + '">' + esc(p.name) + "</option>").join("") +
+    '</select></label><label>Made today<input type="number" min="1" name="qty" required></label><button class="primary">Record production</button></form></section>' +
+    '<section class="card"><h2>Load a motorcycle</h2><p class="muted">Goods handed to a rider at the factory (replaces the paper dispatch record).</p><form class="form" id="dispatchForm"><label>Rider<select name="staff_id">' +
+    S.staff.map(s => '<option value="' + s.id + '">' + esc(s.name) + "</option>").join("") + "</select></label>" + qtyInputs("q", products) + '<button class="primary">Record dispatch</button></form>' +
+    (dispatches.length ? dispatches.map(d => "<p>" + time(d.t) + " · " + esc(d.staff) + ": " + d.items.map(i => esc(i.name) + " × " + i.qty).join(", ") + "</p>").join("") : "") + "</section></div>" +
+    '<div class="grid"><section class="card"><h2>On the motorcycles (' + esc(S.day) + ')</h2><div class="tablewrap"><table><tr><th>Rider</th><th>Product</th><th class="r">Loaded</th><th class="r">Delivered</th><th class="r">Left</th><th class="r">Taken back</th></tr>' +
+    (stock.riders.length ? stock.riders.map(r => r.items.filter(i => i.loaded || i.delivered || i.picked_up).map((i, k) => "<tr><td>" + (k ? "" : esc(r.name)) + "</td><td>" + esc(i.name) + '</td><td class="r">' + i.loaded +
+      '</td><td class="r">' + i.delivered + '</td><td class="r"><b>' + i.on_bike + '</b></td><td class="r">' + i.picked_up + "</td></tr>").join("")).join("") : '<tr><td colspan="6" class="muted">Nothing dispatched on this day.</td></tr>') +
+    '</table></div></section><section class="card"><h2>Returns by reason (all time)</h2>' + (stock.returns.length ? '<table><tr><th>Reason</th><th>Product</th><th class="r">Cups / boxes</th></tr>' +
+      stock.returns.map(r => "<tr><td>" + esc(REASONS[r.reason] || r.reason) + "</td><td>" + esc(r.product) + '</td><td class="r">' + r.qty + "</td></tr>").join("") + "</table>" : '<p class="muted">No returns yet.</p>') + "</section></div>" +
+    '<section class="card"><h2>Deliveries (' + esc(S.day) + ')</h2><div class="tablewrap"><table><tr><th>Time</th><th>Rider</th><th>Shop</th><th>Delivered</th><th>Taken back</th><th>For</th></tr>' +
+    (deliveries.length ? deliveries.map(d => "<tr><td>" + time(d.t) + "</td><td>" + esc(d.staff || "office") + "</td><td>" + esc(d.shop) + "</td><td>" + d.items.filter(i => i.delivered).map(i => esc(i.name) + " × " + i.delivered).join("<br>") +
+      "</td><td>" + d.items.filter(i => i.returned).map(i => esc(i.name) + " × " + i.returned + " (" + esc(REASONS[i.return_reason] || i.return_reason) + ")").join("<br>") + "</td><td>" +
+      (d.po_id ? "PO" : d.order_id ? "order #" + d.order_id : "—") + "</td></tr>").join("") : '<tr><td colspan="6" class="muted">No deliveries on this day.</td></tr>') + "</table></div></section>";
+};
+
+/* ---------- Settings: fuel cost per km, products and prices, reseller logins ---------- */
 VIEWS.settings = async function () {
-  const f = (await api("/api/settings")).fuel;
+  const [f, products] = [(await api("/api/settings")).fuel, await api("/api/products?all=1")];
+  const resellers = S.shops.filter(s => s.channel === "reseller");
+  const money = (p, k) => '<input type="number" min="0" step="0.5" name="' + k + '" value="' + (p[k] ?? "") + '" style="width:90px">';
   $("main").innerHTML = '<section class="card"><h2>Fuel cost</h2><p class="muted">Used for the fuel cost of each route: km ÷ km per litre × price per litre.</p>' +
     '<form class="form" id="fuelForm"><label>Motorcycle: km per litre<input name="km_per_litre" type="number" step="0.1" min="1" value="' + f.km_per_litre + '"></label>' +
     '<label>Fuel price (Tk per litre)<input name="price_per_litre_tk" type="number" step="0.5" min="1" value="' + f.price_per_litre_tk + '"></label><button class="primary">Save</button></form>' +
-    '<p id="perKm">= ' + (f.price_per_litre_tk / f.km_per_litre).toFixed(2) + " Tk per km</p></section>";
+    '<p id="perKm">= ' + (f.price_per_litre_tk / f.km_per_litre).toFixed(2) + " Tk per km</p></section>" +
+    '<section class="card"><h2>Products and prices (Tk)</h2><p class="muted">Reseller orders use the wholesale price, Pandamart the Pandamart price. Sample prices are placeholders: set the real ones.</p>' +
+    '<div class="tablewrap"><table><tr><th>Product</th><th>Unit</th><th>Wholesale</th><th>Retail</th><th>Pandamart</th><th></th></tr>' +
+    products.map(p => '<tr><td colspan="6"><form class="form" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr auto auto" data-product="' + p.id + '"><input name="name" value="' + esc(p.name) + '">' +
+      '<input name="unit" value="' + esc(p.unit) + '">' + money(p, "price_wholesale") + money(p, "price_retail") + money(p, "price_pandamart") +
+      '<label style="flex-direction:row;align-items:center"><input type="checkbox" name="active"' + (p.active ? " checked" : "") + ">in use</label><button>Save</button></form></td></tr>").join("") +
+    '</table></div><form class="form" id="newProduct"><label>New product<input name="name" required placeholder="e.g. Coco Fresh Mango 150 g"></label><label>Unit<input name="unit" value="cup"></label>' +
+    '<label>Wholesale<input type="number" min="0" name="price_wholesale"></label><label>Retail<input type="number" min="0" name="price_retail"></label><label>Pandamart<input type="number" min="0" name="price_pandamart"></label><button class="primary">Add product</button></form></section>' +
+    '<section class="card"><h2>Reseller logins</h2><p class="muted">Each reseller orders at /order/ with its own PIN. A new PIN replaces the old one and is shown only once.</p>' +
+    (resellers.length ? resellers.map(s => '<div class="form" style="grid-template-columns:1fr auto"><span>' + esc(s.name) + '</span><button data-pin="' + s.id + '">New PIN</button></div>').join("")
+      : '<p class="muted">No resellers yet: add one in Shops with type "Reseller".</p>') + '<p id="newPin"></p></section>';
 };
 
 /* ---------- events ---------- */
@@ -250,6 +321,13 @@ document.addEventListener("click", async e => {
     if (t.dataset.hist) { const id = +t.dataset.hist; S.history = S.history?.id === id ? null : { id, rows: await api("/api/shops/" + id + "/agreements") }; S.edit = null; return VIEWS.shops(); }
     if (t.id === "here") navigator.geolocation.getCurrentPosition(p => { $("nlat").value = p.coords.latitude.toFixed(6); $("nlon").value = p.coords.longitude.toFixed(6); }, err => toast("Location: " + err.message), { enableHighAccuracy: true });
     if (t.dataset.audit) return showAudit(t.dataset.audit);
+    if (t.dataset.po) { await post("/api/pos/" + t.dataset.po + "/status", { status: t.dataset.status }); return VIEWS.orders(); }
+    if (t.dataset.pin) {
+      const name = S.shops.find(s => s.id === +t.dataset.pin)?.name;
+      if (!confirm("Make a new PIN for " + name + "? The old PIN stops working.")) return;
+      const r = await post("/api/customers/" + t.dataset.pin + "/pin", {});
+      $("newPin").innerHTML = "New PIN for <b>" + esc(name) + "</b>: <b style='font-size:1.3rem;letter-spacing:.2em'>" + esc(r.pin) + "</b> (write it down: it is not shown again)";
+    }
   } catch (err) { toast(err.message); }
 });
 async function copy(text) {
@@ -269,6 +347,28 @@ document.addEventListener("submit", async e => {
       await post("/api/shops", { name: data.name, area: data.area, channel: data.channel, lat: +data.lat, lon: +data.lon, radius_m: +data.radius_m });
       S.shops = await api("/api/shops"); toast("Shop added. Now set its agreement."); return VIEWS.shops();
     }
+    if (f.id === "orderForm") {
+      await post("/api/orders", { shop_id: +data.shop_id, items: itemsFrom(data, "q", S.products), wanted_date: data.wanted_date });
+      toast("Order added"); return VIEWS.orders();
+    }
+    if (f.id === "poForm") {
+      await post("/api/pos", { number: data.number, shop_id: +data.shop_id, items: itemsFrom(data, "q", S.products), po_date: data.po_date, due_date: data.due_date });
+      toast("Purchase order added"); return VIEWS.orders();
+    }
+    if (f.id === "prodForm") { await post("/api/production", { product_id: +data.product_id, qty: +data.qty }); toast("Production recorded"); return VIEWS.stock(); }
+    if (f.id === "dispatchForm") {
+      await post("/api/dispatches", { staff_id: +data.staff_id, items: itemsFrom(data, "q", S.products) });
+      toast("Dispatch recorded"); return VIEWS.stock();
+    }
+    if (f.id === "newProduct") {
+      await post("/api/products", { name: data.name, unit: data.unit, price_wholesale: data.price_wholesale, price_retail: data.price_retail, price_pandamart: data.price_pandamart });
+      toast("Product added"); return VIEWS.settings();
+    }
+    if (f.dataset.product) {
+      await post("/api/products/" + f.dataset.product, { name: data.name, unit: data.unit, price_wholesale: data.price_wholesale, price_retail: data.price_retail,
+        price_pandamart: data.price_pandamart, active: data.active ? 1 : 0 });
+      return toast("Product saved");
+    }
     if (f.id === "fuelForm") { await post("/api/settings", { fuel: { km_per_litre: +data.km_per_litre, price_per_litre_tk: +data.price_per_litre_tk } }); toast("Fuel settings saved"); return VIEWS.settings(); }
     if (f.id === "askForm") {
       const q = $("q").value.trim(); if (!q) return;
@@ -278,7 +378,13 @@ document.addEventListener("submit", async e => {
     }
   } catch (err) { if (f.id === "loginForm") $("err").textContent = err.message; else if (f.id === "askForm") $("answer").textContent = err.message; else toast(err.message); }
 });
-document.addEventListener("change", e => { if (e.target.id === "day") { S.day = e.target.value; VIEWS.today(); } });
+document.addEventListener("change", async e => {
+  if (e.target.id === "day") { S.day = e.target.value; VIEWS.today(); }
+  if (e.target.dataset.order) {
+    try { await post("/api/orders/" + e.target.dataset.order + "/status", { status: e.target.value }); toast("Order #" + e.target.dataset.order + ": " + e.target.value); }
+    catch (err) { toast(err.message); }
+  }
+});
 
 (async () => { try { S.me = await api("/api/me"); } catch (e) { /* not logged in */ } render(); })();
 </script>

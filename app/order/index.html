@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050A13">
+<link rel="icon" href="/field/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/field/icons/apple-touch-icon.png">
+<title>NutriCoco orders</title>
+<style>
+/* Reseller ordering (requirement 8): a wholesale customer orders directly from NutriCoco and follows the status. */
+:root { --bg: #050A13; --card: #0E192B; --line: rgba(130, 180, 255, .16); --fg: #E7F0FF; --muted: #8399B8;
+  --accent: #2EE6FF; --on-accent: #02121A; --ok: #3CF0A8; --warn: #FFC24B; --bad: #FF5C7C; color-scheme: dark; }
+@media (prefers-color-scheme: light) { :root { --bg: #EDF2FA; --card: #FFFFFF; --line: rgba(30, 70, 140, .16); --fg: #0B1830;
+  --muted: #50627E; --accent: #0090C4; --on-accent: #FFFFFF; --ok: #0E9A63; --warn: #B07000; --bad: #D6334F; color-scheme: light; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.45 system-ui, "Segoe UI", "Noto Sans Bengali", "Nirmala UI", sans-serif;
+  padding: env(safe-area-inset-top) 16px calc(24px + env(safe-area-inset-bottom)); }
+main { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+header { display: flex; align-items: center; gap: 8px; padding: 14px 0 4px; } header b { font-size: 1.1rem; } .grow { flex: 1; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+h2 { margin: 0; font-size: 1rem; } p { margin: 0; } .muted { color: var(--muted); font-size: .85rem; }
+button { font: inherit; border: 1px solid var(--line); background: transparent; color: var(--fg); border-radius: 12px; padding: 12px 14px; font-weight: 600; cursor: pointer; }
+.small { padding: 6px 10px; font-size: .85rem; border-radius: 10px; }
+.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+input { font: inherit; color: inherit; background: transparent; border: 1px solid var(--line); border-radius: 12px; padding: 12px; width: 100%; }
+#pin { font-size: 1.6rem; letter-spacing: .5em; text-align: center; }
+.prod { display: grid; grid-template-columns: 1fr 110px; gap: 10px; align-items: center; }
+.total { font-size: 1.2rem; font-weight: 700; }
+.chip { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: .8rem; font-weight: 600; border: 1px solid currentColor; }
+.ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+.order { padding: 10px; border-radius: 10px; background: rgba(120, 180, 255, .06); display: flex; flex-direction: column; gap: 4px; }
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script>
+"use strict";
+const TX = {
+  en: { title: "NutriCoco orders", login: "Log in", pinHint: "Enter your 6-digit reseller PIN from NutriCoco.", logout: "Log out", lang: "বাংলা",
+    newOrder: "New order", perUnit: "{p} Tk per {u}", total: "Total", wanted: "Needed by (optional)", note: "Note (optional)", place: "Place order",
+    placed: "Order placed. NutriCoco will confirm it.", mine: "My orders", none: "No orders yet.", empty: "Enter at least one quantity.",
+    status: { new: "Sent", confirmed: "Confirmed", dispatched: "On the way", delivered: "Delivered", cancelled: "Cancelled" } },
+  bn: { title: "নিউট্রিকোকো অর্ডার", login: "লগ ইন", pinHint: "নিউট্রিকোকোর দেওয়া ৬ সংখ্যার রিসেলার পিন দিন।", logout: "লগ আউট", lang: "English",
+    newOrder: "নতুন অর্ডার", perUnit: "প্রতি {u} {p} টাকা", total: "মোট", wanted: "কবে লাগবে (ঐচ্ছিক)", note: "মন্তব্য (ঐচ্ছিক)", place: "অর্ডার দিন",
+    placed: "অর্ডার পাঠানো হয়েছে। নিউট্রিকোকো নিশ্চিত করবে।", mine: "আমার অর্ডার", none: "এখনো কোনো অর্ডার নেই।", empty: "অন্তত একটি পরিমাণ লিখুন।",
+    status: { new: "পাঠানো", confirmed: "নিশ্চিত", dispatched: "পথে", delivered: "পৌঁছেছে", cancelled: "বাতিল" } }
+};
+let LANG = localStorage.getItem("ss_lang") === "bn" ? "bn" : "en";
+const BN = "০১২৩৪৫৬৭৮৯", num = x => LANG === "bn" ? String(x).replace(/[0-9]/g, c => BN[c]) : String(x);
+const t = (k, v) => { let s = TX[LANG][k] ?? TX.en[k]; for (const key in v || {}) s = s.split("{" + key + "}").join(v[key]); return s; };
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const S = { me: null, products: [], orders: [], msg: "" };
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, { credentials: "same-origin", ...opts, headers: opts.body ? { "Content-Type": "application/json" } : {} });
+  const data = await r.json().catch(() => ({}));
+  if (r.status === 401 && path !== "/api/login") { S.me = null; render(); }
+  if (!r.ok) throw new Error(data.error || r.statusText);
+  return data;
+}
+function render() {
+  document.documentElement.lang = LANG;
+  const lang = '<button class="small" id="lang">' + t("lang") + "</button>";
+  if (!S.me) {
+    $("app").innerHTML = "<header><b>" + t("title") + '</b><span class="grow"></span>' + lang + '</header><form class="card" id="loginForm"><h2>' + t("login") + '</h2><p class="muted">' + t("pinHint") +
+      '</p><input id="pin" inputmode="numeric" maxlength="6" required><button class="primary">' + t("login") + '</button><p class="muted" id="err"></p></form>';
+    return;
+  }
+  const cls = { new: "warn", confirmed: "ok", dispatched: "ok", delivered: "ok", cancelled: "bad" };
+  $("app").innerHTML = "<header><b>" + esc(S.me.name) + '</b><span class="grow"></span>' + lang + '<button class="small" id="logout">' + t("logout") + "</button></header>" +
+    '<form class="card" id="orderForm"><h2>' + t("newOrder") + "</h2>" +
+    S.products.map(p => '<div class="prod"><div><b>' + esc(p.name) + '</b><div class="muted">' + (p.price_wholesale != null ? t("perUnit", { p: num(p.price_wholesale), u: esc(p.unit) }) : "") +
+      '</div></div><input type="number" min="0" inputmode="numeric" name="q' + p.id + '" placeholder="0"></div>').join("") +
+    '<label class="muted">' + t("wanted") + '<input type="date" name="wanted_date"></label><label class="muted">' + t("note") + '<input name="note" maxlength="300"></label>' +
+    '<p class="total">' + t("total") + ': <span id="total">' + num(0) + "</span> Tk</p>" +
+    '<button class="primary">' + t("place") + '</button><p id="msg">' + esc(S.msg) + "</p></form>" +
+    '<section class="card"><h2>' + t("mine") + "</h2>" + (S.orders.length ? S.orders.map(o => '<div class="order"><div><b>#' + num(o.id) + "</b> · " +
+      num(new Date(o.t).toLocaleDateString()) + ' <span class="chip ' + cls[o.status] + '">' + t("status")[o.status] + "</span></div><div>" +
+      o.items.map(i => esc(i.name) + " × " + num(i.qty)).join(", ") + '</div><div class="muted">' + t("total") + ": " + num(o.total_tk) + " Tk</div></div>").join("")
+      : '<p class="muted">' + t("none") + "</p>") + "</section>";
+}
+function total() {
+  const f = $("orderForm"); if (!f) return;
+  const sum = S.products.reduce((a, p) => a + (+f.elements["q" + p.id].value || 0) * (p.price_wholesale || 0), 0);
+  $("total").textContent = num(sum.toLocaleString());
+}
+async function load() { [S.products, S.orders] = await Promise.all([api("/api/products"), api("/api/orders")]); render(); }
+document.addEventListener("input", total);
+document.addEventListener("click", async e => {
+  if (e.target.id === "lang") { LANG = LANG === "en" ? "bn" : "en"; localStorage.setItem("ss_lang", LANG); render(); }
+  if (e.target.id === "logout") { await api("/api/logout", { method: "POST", body: "{}" }).catch(() => {}); S.me = null; render(); }
+});
+document.addEventListener("submit", async e => {
+  e.preventDefault();
+  const f = e.target;
+  try {
+    if (f.id === "loginForm") {
+      const me = await api("/api/login", { method: "POST", body: JSON.stringify({ pin: $("pin").value }) });
+      if (me.role !== "reseller") { await api("/api/logout", { method: "POST", body: "{}" }); throw new Error("This page is for resellers. Riders use /field/, the office /office/."); }
+      S.me = me; return load();
+    }
+    const items = S.products.map(p => ({ product_id: p.id, qty: +f.elements["q" + p.id].value || 0 })).filter(i => i.qty > 0);
+    if (!items.length) { $("msg").textContent = t("empty"); return; }
+    await api("/api/orders", { method: "POST", body: JSON.stringify({ items, wanted_date: f.elements.wanted_date.value, note: f.elements.note.value }) });
+    S.msg = t("placed"); await load(); S.msg = "";
+  } catch (err) { const el = $("err") || $("msg"); if (el) el.textContent = err.message; }
+});
+(async () => {
+  try { const me = await api("/api/me"); if (me.role === "reseller") { S.me = me; return load(); } } catch (e) { /* not logged in */ }
+  render();
+})();
+</script>
+</body>
+</html>

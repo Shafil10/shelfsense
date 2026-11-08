@@ -52,6 +52,7 @@ DEFAULT_CONFIG = ROOT / "configs" / "config.yaml"
 SITE = ROOT / "app" / "mockup" / "site"
 FIELD = ROOT / "app" / "field"
 OFFICE = ROOT / "app" / "office"
+ORDER = ROOT / "app" / "order"
 SESSION_HOURS = 12
 MAX_FAILS, LOCK_SEC = 5, 300  # 5 wrong PINs from one address -> wait 5 minutes
 UPLOADS = ROOT / "data" / "uploads"
@@ -300,7 +301,7 @@ def make_handler(store, site=SITE):
             # SimpleHTTPRequestHandler drops ".." parts, so no path can leave its folder.
             if path.startswith("/track/"):  # every share link shows the same page; its script reads the token
                 return str(OFFICE / "track.html")
-            for prefix, folder in (("/reports/", store.reports), ("/field/", FIELD), ("/office/", OFFICE)):
+            for prefix, folder in (("/reports/", store.reports), ("/field/", FIELD), ("/office/", OFFICE), ("/order/", ORDER)):
                 if path.startswith(prefix):
                     base, self.directory = self.directory, str(folder)
                     try:
@@ -364,6 +365,9 @@ def make_handler(store, site=SITE):
                 return True
             if (method, path) == ("GET", "/api/me"):
                 who = self.session()
+                if who and who["role"] == "staff":
+                    visit = store.db.open_visit(who["staff_id"])
+                    who = {**who, "visit_shop_id": visit["shop_id"] if visit else None}
                 self.send_json(who if who else {"error": "log in first"}, 200 if who else 401)
                 return True
             return False
@@ -387,7 +391,7 @@ def make_handler(store, site=SITE):
             url = urlparse(self.path)
             if self.auth_routes("GET", url.path):
                 return
-            if url.path in ("/office", "/field"):  # a typed address without the final slash
+            if url.path in ("/office", "/field", "/order"):  # a typed address without the final slash
                 self.send_response(301)
                 self.send_header("Location", url.path + "/")
                 self.end_headers()
@@ -485,7 +489,9 @@ def make_handler(store, site=SITE):
                     if who["role"] != "staff" and "staff_id" not in d:
                         raise ValueError("tracking is for riders: log in with a rider's PIN")
                     staff_id = who["staff_id"] if who["role"] == "staff" else int(d["staff_id"])
-                    return self.send_json({"ok": True, "events": db.ping(staff_id, lat, lon, acc, client_time(d.get("t")))})
+                    events = db.ping(staff_id, lat, lon, acc, client_time(d.get("t")))
+                    visit = db.open_visit(staff_id)  # the phone also learns a visit that started before it opened
+                    return self.send_json({"ok": True, "events": events, "visit_shop_id": visit["shop_id"] if visit else None})
                 if url.path == "/api/shops":
                     d = self.read_json()
                     sid = db.add_shop(str(d["name"])[:100], float(d["lat"]), float(d["lon"]), str(d.get("area", ""))[:60],
@@ -532,7 +538,8 @@ def make_handler(store, site=SITE):
                     d = self.read_json()
                     staff = who["staff_id"] if who["role"] == "staff" else (int(d["staff_id"]) if d.get("staff_id") else None)
                     did = biz.add_delivery(int(d["shop_id"]), d.get("items"), staff, int(d["po_id"]) if d.get("po_id") else None,
-                                           int(d["order_id"]) if d.get("order_id") else None, text(d, "note"))
+                                           int(d["order_id"]) if d.get("order_id") else None, text(d, "note"),
+                                           client_time(d.get("t")))  # a delivery saved offline keeps its time
                     return self.send_json({"id": did}, 201)
                 if url.path == "/api/pos":
                     d = self.read_json()

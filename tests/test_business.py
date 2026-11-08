@@ -1,4 +1,4 @@
-"""Tests for src/server/business.py: production -> dispatch -> delivery, returns, Pandamart POs, reseller orders,
+﻿"""Tests for src/server/business.py: production -> dispatch -> delivery, returns, Pandamart POs, reseller orders,
 stock and restock alerts.
 
 Run from the project root:  python -m pytest -v
@@ -8,7 +8,7 @@ import pytest
 from src.server.business import Business
 from src.server.db import DB
 
-TRACK = {"utc_offset_hours": 6, "geofence_radius_m": 80, "checkout_factor": 1.5, "gps_max_accuracy_m": 50, "min_step_m": 10,
+TRACK = {"utc_offset_hours": 6, "geofence_radius_m": 80, "checkout_factor": 1.5, "min_visit_minutes": 2, "gps_max_accuracy_m": 50, "min_step_m": 10,
          "max_speed_kmh": 90, "fuel": {"km_per_litre": 40, "price_per_litre_tk": 130}}
 
 
