@@ -44,6 +44,7 @@ from urllib.parse import parse_qs, urlparse
 
 import yaml
 
+from src.rules.agreement import check_agreement, compare
 from src.server.business import Business
 from src.server.db import DB, dist_m
 
@@ -183,8 +184,27 @@ class Store:
 
     def _run_pipeline(self, video):
         from src.report.audit import audit
-        return audit(video, ROOT / self.cfg["detection"]["weights"], self.cfg, self.cfg["server"]["device"],
-                     self.reports)[0]
+        det = self.cfg["detection"]
+        nutricoco = det.get("nutricoco_weights")  # the detector trained on NutriCoco's photos, once it exists
+        weights = ROOT / nutricoco if nutricoco and (ROOT / nutricoco).exists() else ROOT / det["weights"]
+        return audit(video, weights, self.cfg, self.cfg["server"]["device"], self.reports)[0]
+
+    def agreement_check(self, report, meta):
+        """Cups vs the agreement valid when the video was recorded, and the change since the shop's last video."""
+        if not meta.get("shop_id"):
+            return
+        at = meta.get("captured_utc") or meta["received_utc"]
+        try:
+            at = datetime.fromisoformat(at.replace("Z", "+00:00")).astimezone(timezone.utc).isoformat(timespec="seconds")
+        except ValueError:
+            at = meta["received_utc"]
+        kpi = check_agreement(report, self.db.agreement(meta["shop_id"], at))
+        report["kpis"]["agreement"] = kpi
+        earlier = [m for m in self.list() if m.get("shop_id") == meta["shop_id"] and m["status"] == "done"
+                   and m["id"] != meta["id"] and m["received_utc"] <= meta["received_utc"]]
+        if earlier and kpi["status"] == "measured":
+            before = (self.report(earlier[0]["id"]) or {}).get("kpis", {}).get("agreement", {})
+            report["kpis"]["before_after"] = {**compare(before, kpi), "before_audit": earlier[0]["id"]}
 
     def _worker(self):
         while True:
@@ -199,6 +219,8 @@ class Store:
                                                               "source", "gps")}
                 self.location_check(report, meta)
                 self.age_check(report, meta)
+                report.setdefault("kpis", {})
+                self.agreement_check(report, meta)
                 flags = report["integrity"]["flags"]
                 report["integrity"]["verdict"] = ("re-audit" if any(f["severity"] == "critical" for f in flags)
                                                   else "review" if flags else "ok")

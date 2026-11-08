@@ -225,7 +225,7 @@ async function showAudit(id) {
     (r.integrity.flags.length ? r.integrity.flags.map(f => '<p class="' + (f.severity === "critical" ? "bad" : "warn") + '">' + esc(f.detail) + "</p>").join("") : '<p class="ok">All integrity checks passed.</p>') +
     "<p>Filmed " + (c.distance_to_shop_m != null ? "<b>" + c.distance_to_shop_m + " m</b> from the shop" : "at an unknown distance from the shop") + " · " + r.summary.keyframes + " sharp frames · products per frame: median " +
     r.summary.products_per_keyframe.median + ", max " + r.summary.products_per_keyframe.max + "</p>" +
-    '<p class="muted">Counting NutriCoco cups against the agreement starts when the cup detector is trained on NutriCoco\'s photos.</p>' +
+    agreementHtml(r.kpis || {}, folder) +
     '<div class="thumbs">' + r.keyframes.map(k => '<a href="/reports/' + folder + "/" + k.evidence + '" target="_blank" rel="noopener"><img loading="lazy" alt="Frame at ' + k.time_sec + ' s" src="/reports/' + folder + "/" + k.evidence + '"></a>').join("") + "</div>" +
     '<form class="form" id="askForm" style="grid-template-columns:1fr auto"><input id="q" placeholder="Ask about this audit (English or বাংলা)"><button class="primary">Ask</button></form><p id="answer"></p>';
 }
@@ -287,6 +287,27 @@ VIEWS.stock = async function () {
       (d.po_id ? "PO" : d.order_id ? "order #" + d.order_id : "—") + "</td></tr>").join("") : '<tr><td colspan="6" class="muted">No deliveries on this day.</td></tr>') + "</table></div></section>";
 };
 
+/* Agreement check of a fridge video (cups vs agreed) and the change since the shop's previous video. */
+function agreementHtml(k, folder) {
+  const a = k.agreement;
+  if (!a) return '<p class="muted">No agreement check: the video was not linked to a shop.</p>';
+  if (a.status !== "measured") return '<p class="muted">Agreement check pending: ' + esc(a.reason) + ".</p>";
+  const cls = { compliant: "ok", violation: "bad", unclear: "warn" }[a.result];
+  let html = '<div class="card" style="padding:12px"><h2>Agreement <span class="chip ' + cls + '">' + esc(a.result) + "</span></h2>" +
+    "<p>" + a.cups_visible + " of " + a.agreed_cups + " agreed cups visible · " + a.cups_in_place + " in the agreed place · " + a.gaps_on_shelf + " empty gap(s)" +
+    (a.shelf_share != null ? " · " + Math.round(a.shelf_share * 100) + "% of the agreed shelf" : "") + "</p>" +
+    a.findings.map(f => '<p class="' + cls + '">' + esc(f) + "</p>").join("") +
+    (a.best_view?.evidence ? '<p class="muted">Best view: <a href="/reports/' + folder + "/" + a.best_view.evidence + '" target="_blank" rel="noopener">frame at ' + a.best_view.time_sec + " s</a></p>" : "");
+  const b = k.before_after;
+  if (b && b.status === "measured") {
+    const tc = { better: "ok", worse: "bad", same: "" }[b.trend];
+    const ch = x => (x.change > 0 ? "+" : "") + x.change;
+    html += '<p>Since the previous video: <span class="chip ' + tc + '">' + esc(b.trend) + "</span> cups " + b.cups_visible.before + " → " + b.cups_visible.after + " (" + ch(b.cups_visible) + "), in place " +
+      b.cups_in_place.before + " → " + b.cups_in_place.after + ', <a href="#" data-audit="' + esc(b.before_audit) + '">open the previous video</a></p>';
+  }
+  return html + "</div>";
+}
+
 /* ---------- Settings: fuel cost per km, products and prices, reseller logins ---------- */
 VIEWS.settings = async function () {
   const [f, products] = [(await api("/api/settings")).fuel, await api("/api/products?all=1")];
@@ -310,7 +331,8 @@ VIEWS.settings = async function () {
 
 /* ---------- events ---------- */
 document.addEventListener("click", async e => {
-  const t = e.target.closest("button, tr.click"); if (!t) return;
+  const t = e.target.closest("button, tr.click, a[data-audit]"); if (!t) return;
+  if (t.tagName === "A") e.preventDefault();
   try {
     if (t.dataset.tab) { S.tab = t.dataset.tab; S.edit = S.history = null; return render(); }
     if (t.id === "logout") { await post("/api/logout", {}); S.me = null; return render(); }

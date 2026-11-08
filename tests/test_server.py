@@ -24,8 +24,15 @@ CFG = {"server": {"max_upload_mb": 1, "location_ttl_sec": 600, "device": "cpu"},
 
 
 def fake_audit(video):
-    if video.read_bytes() == b"bad":
+    data = video.read_bytes()
+    if data == b"bad":
         raise RuntimeError("cannot read video")
+    if data.startswith(b"cups:"):  # a NutriCoco-trained detector that sees N cups on shelf 2
+        n = int(data[5:])
+        boxes = [{"cls": "nutricoco_cup", "shelf": 2, "xyxy": [50 * i, 200, 50 * i + 40, 280], "conf": 0.9} for i in range(n)]
+        return {"video": {"file": video.name}, "pipeline": {"classes": ["nutricoco_cup", "other_product"]},
+                "integrity": {"verdict": "ok", "flags": []}, "summary": {"keyframes": 1}, "kpis": {},
+                "keyframes": [{"time_sec": 1.0, "evidence": "evidence/a.jpg", "boxes": boxes}], "processing_sec": 0.1}
     return {"video": {"file": video.name}, "integrity": {"verdict": "ok", "flags": []}, "summary": {"keyframes": 3},
             "kpis": {}, "keyframes": [], "processing_sec": 0.1}
 
@@ -248,6 +255,23 @@ def test_business_roles(server):
     # a new reseller PIN from the office
     code, r = post(f"{base}/api/customers/{ids['Mirpur Wholesale Traders (sample)']}/pin", {})
     assert code == 201 and login(base, r["pin"])[0] == 200
+
+
+def test_agreement_check_and_before_after(server):
+    base, _ = server
+    _, shops = call(f"{base}/api/shops")
+    s = next(x for x in shops if x["name"] == "Al-Madina Store")   # sample agreement: 4 cups, shelf 2, front
+    q = f"shop_id={s['id']}&lat={s['lat']}&lon={s['lon']}&acc=5"
+    _, up = call(f"{base}/api/audits?{q}", b"cups:2", "video/mp4")
+    first = wait_done(base, up["id"])["report"]["kpis"]
+    assert first["agreement"]["result"] == "violation" and first["agreement"]["cups_visible"] == 2
+    assert "before_after" not in first
+    _, up = call(f"{base}/api/audits?{q}", b"cups:4", "video/mp4")
+    second = wait_done(base, up["id"])["report"]["kpis"]
+    assert second["agreement"]["result"] == "compliant"
+    assert second["before_after"]["trend"] == "better" and second["before_after"]["cups_visible"]["change"] == 2
+    _, up = call(f"{base}/api/audits?{q}", b"video", "video/mp4")   # the general detector: no NutriCoco class yet
+    assert wait_done(base, up["id"])["report"]["kpis"]["agreement"]["status"] == "pending"
 
 
 def test_wrong_pins_lock_out(server):

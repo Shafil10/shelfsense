@@ -13,6 +13,7 @@ detection:
   img_size: 640            # general default; Sprint 4 shelf models use sku110k.img_size
   max_det: 1000            # Ultralytics default is 300; a packed shelf can hold more products
   weights: runs/detect/sku110k_v8n_4k/weights/best.pt   # current best detector (4k SKU-110K images)
+  nutricoco_weights: runs/detect/nutricoco/weights/best.pt  # used by the server once trained (train_nutricoco.py)
   count_conf: 0.30         # threshold for counting products: best count MAE on the 500 SKU-110K val images
                            # (count_compare tune: 0.30 for the 4k model, 0.35 for the 2k model; 0.25 overcounts)
 
@@ -85,6 +86,15 @@ tracking:                  # delivery visits from GPS (src/server/db.py)
   fuel:                    # PLACEHOLDERS: NutriCoco to set their real numbers
     km_per_litre: 40       # motorcycle
     price_per_litre_tk: 130
+
+nutricoco_train:           # NutriCoco detector from NutriCoco's labelled photos (src/detection/train_nutricoco.py)
+  epochs: 60
+  patience: 15
+  img_size: 1024           # cups in a whole-fridge photo are small; 1024 kept small products findable (SKU-110K)
+  batch: 2                 # GTX 1650 4 GB at 1024 px (batch 4 spilled into shared memory)
+  workers: 1               # each worker holds its own torch + CUDA: more grew the pagefile on C:
+  count_conf: 0.30         # same as detection.count_conf until tuned on NutriCoco's validation photos
+  seed: 0
 
 business:                  # NutriCoco distribution records (src/server/business.py)
   restock_days: 2          # warn when a shop got no delivery for longer (chilled pudding sells fast); NutriCoco to confirm

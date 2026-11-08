@@ -159,8 +159,8 @@ def audit(video, weights, full, device="cpu", reports_dir=REPORTS):
             "time_sec": t, "frame": r["file"], "evidence": evidence, "phash": str(phash(frame)),
             "products": len(boxes),
             "products_per_shelf": [rows.count(i) for i in range(max(rows) + 1)] if rows else [],
-            "boxes": [{"xyxy": b, "conf": round(c, 3), "shelf": row + 1}
-                      for b, c, row in zip(boxes, res.boxes.conf.tolist(), rows)],
+            "boxes": [{"xyxy": b, "conf": round(c, 3), "shelf": row + 1, "cls": model.names[int(k)]}
+                      for b, c, row, k in zip(boxes, res.boxes.conf.tolist(), rows, res.boxes.cls.tolist())],
         })
 
     counts = [k["products"] for k in keyframes]
@@ -186,7 +186,7 @@ def audit(video, weights, full, device="cpu", reports_dir=REPORTS):
         "video": {"file": video.name, "sha256": sha256(video), "bytes": video.stat().st_size,
                   "modified_utc": datetime.fromtimestamp(video.stat().st_mtime, timezone.utc)
                   .isoformat(timespec="seconds"), **video_info(video)},
-        "pipeline": {"detector": str(weights), "count_conf": det["count_conf"],
+        "pipeline": {"detector": str(weights), "classes": list(model.names.values()), "count_conf": det["count_conf"],
                      "extraction": full["extraction"], "device": device},
         "integrity": {"reuse_matches": reuse, "longest_blur_gap_sec": blur_gap, "flags": flags,
                       "verdict": "re-audit" if any(f["severity"] == "critical" for f in flags)
