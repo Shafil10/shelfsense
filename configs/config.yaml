@@ -80,9 +80,13 @@ tracking:                  # delivery visits from GPS (src/server/db.py)
   max_speed_kmh: 90        # faster jumps between two fixes are GPS errors (motorcycle in Dhaka)
   video_max_distance_m: 200  # a fridge video filmed farther from its shop gets a warning...
   video_far_m: 1000          # ...and farther than this a critical flag (re-audit): probably another place
+  video_max_age_hours: 6     # a video recorded longer before it was sent gets a warning (could be an old one)
   fuel:                    # PLACEHOLDERS: NutriCoco to set their real numbers
     km_per_litre: 40       # motorcycle
     price_per_litre_tk: 130
+
+business:                  # NutriCoco distribution records (src/server/business.py)
+  restock_days: 2          # warn when a shop got no delivery for longer (chilled pudding sells fast); NutriCoco to confirm
 
 kpis:
   - out_of_stock

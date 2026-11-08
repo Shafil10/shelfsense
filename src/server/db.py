@@ -41,10 +41,10 @@ CREATE TABLE IF NOT EXISTS shares (
   token TEXT PRIMARY KEY, staff_id INTEGER NOT NULL REFERENCES staff(id), expires TEXT NOT NULL, created TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value REAL NOT NULL);
 CREATE TABLE IF NOT EXISTS access (
-  id INTEGER PRIMARY KEY, role TEXT NOT NULL, staff_id INTEGER REFERENCES staff(id), salt TEXT NOT NULL,
+  id INTEGER PRIMARY KEY, role TEXT NOT NULL, staff_id INTEGER REFERENCES staff(id), shop_id INTEGER REFERENCES shops(id), salt TEXT NOT NULL,
   pin_hash TEXT NOT NULL, created TEXT NOT NULL);
 """
-ROLES = ("office", "staff")
+ROLES = ("office", "staff", "reseller")
 
 
 def iso(dt):
@@ -71,6 +71,10 @@ class DB:
         self.con.row_factory = sqlite3.Row
         self.con.execute("PRAGMA foreign_keys = ON")
         self.con.executescript(SCHEMA)
+        # upgrade databases made before reseller logins: their PIN belongs to a customer (shop)
+        if "shop_id" not in {r["name"] for r in self.con.execute("PRAGMA table_info(access)")}:
+            self.con.execute("ALTER TABLE access ADD COLUMN shop_id INTEGER REFERENCES shops(id)")
+            self.con.commit()
         self.lock = threading.Lock()
 
     def q(self, sql, args=()):
@@ -172,32 +176,38 @@ class DB:
     def _hash(pin, salt):
         return hashlib.pbkdf2_hmac("sha256", pin.encode(), bytes.fromhex(salt), 60_000).hex()
 
-    def new_pin(self, role, staff_id=None):
-        """Create a random 6-digit PIN for the office or one staff member; returns the PIN (shown once).
-        A staff member's older PINs stop working."""
-        if role not in ROLES or (role == "staff") != (staff_id is not None):
-            raise ValueError("role must be 'office', or 'staff' with a staff_id")
+    def new_pin(self, role, staff_id=None, shop_id=None):
+        """Create a random 6-digit PIN for the office, one staff member or one reseller (a customer in the shops
+        table); returns the PIN (shown once). The person's older PINs stop working."""
+        if role not in ROLES or (role == "staff") != (staff_id is not None) or (role == "reseller") != (shop_id is not None):
+            raise ValueError("role must be 'office', 'staff' with a staff_id, or 'reseller' with a shop_id")
         if staff_id is not None:
             if not self.q("SELECT id FROM staff WHERE id=?", (staff_id,)):
                 raise KeyError(f"unknown staff {staff_id}")
             self.x("DELETE FROM access WHERE role='staff' AND staff_id=?", (staff_id,))
+        if shop_id is not None:
+            if not self.shop(shop_id):
+                raise KeyError(f"unknown customer {shop_id}")
+            self.x("DELETE FROM access WHERE role='reseller' AND shop_id=?", (shop_id,))
         while True:  # PINs must be unique, because the PIN alone says who is logging in
             pin = f"{secrets.randbelow(10 ** 6):06d}"
             if self.check_pin(pin) is None:
                 break
         salt = secrets.token_hex(16)
-        self.x("INSERT INTO access (role, staff_id, salt, pin_hash, created) VALUES (?,?,?,?,?)",
-               (role, staff_id, salt, self._hash(pin, salt), iso(datetime.now(timezone.utc))))
+        self.x("INSERT INTO access (role, staff_id, shop_id, salt, pin_hash, created) VALUES (?,?,?,?,?,?)",
+               (role, staff_id, shop_id, salt, self._hash(pin, salt), iso(datetime.now(timezone.utc))))
         return pin
 
     def check_pin(self, pin):
-        """{'role', 'staff_id', 'name'} for a valid PIN, else None."""
+        """{'role', 'staff_id', 'shop_id', 'name'} for a valid PIN, else None."""
         pin = str(pin).strip()
         if not (len(pin) == 6 and pin.isdigit()):
             return None
-        for r in self.q("SELECT a.*, s.name FROM access a LEFT JOIN staff s ON s.id=a.staff_id"):
+        for r in self.q("SELECT a.*, s.name, sh.name AS shop FROM access a LEFT JOIN staff s ON s.id=a.staff_id "
+                        "LEFT JOIN shops sh ON sh.id=a.shop_id"):
             if hmac.compare_digest(self._hash(pin, r["salt"]), r["pin_hash"]):
-                return {"role": r["role"], "staff_id": r["staff_id"], "name": r["name"] or "NutriCoco office"}
+                return {"role": r["role"], "staff_id": r["staff_id"], "shop_id": r["shop_id"],
+                        "name": r["name"] or r["shop"] or "NutriCoco office"}
         return None
 
     def open_visit(self, staff_id):

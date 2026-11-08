@@ -1,4 +1,4 @@
-"""Tests for src/server/app.py with a fake audit (no detector, no Ollama needed).
+﻿"""Tests for src/server/app.py with a fake audit (no detector, no Ollama needed).
 
 Run from the project root:  python -m pytest -v
 """
@@ -7,6 +7,7 @@ import json
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from http.server import ThreadingHTTPServer
 
@@ -16,8 +17,9 @@ from src.server import app
 
 CFG = {"server": {"max_upload_mb": 1, "location_ttl_sec": 600, "device": "cpu"},
        "tracking": {"utc_offset_hours": 6, "geofence_radius_m": 80, "checkout_factor": 1.5, "gps_max_accuracy_m": 50, "min_step_m": 10,
-                    "max_speed_kmh": 90, "video_max_distance_m": 200, "video_far_m": 1000,
+                    "max_speed_kmh": 90, "video_max_distance_m": 200, "video_far_m": 1000, "video_max_age_hours": 6,
                     "fuel": {"km_per_litre": 40, "price_per_litre_tk": 130}},
+       "business": {"restock_days": 2},
        "assistant": {"url": "http://localhost:1", "model": "m", "num_ctx": 512, "timeout_sec": 1}}
 
 
@@ -185,6 +187,68 @@ def test_settings_and_agreement_history(server):
     assert code == 400 and "rider" in body["error"]
 
 
+def test_offline_points_and_old_videos(server):
+    base, _ = server
+    from datetime import datetime, timedelta, timezone
+    now = datetime.now(timezone.utc)
+    _, rahim = login(base, PINS["Rahim Uddin"])
+    _, shops = call(f"{base}/api/shops", op=rahim)
+    s = shops[0]
+    # a GPS point recorded 20 min ago while offline, sent now: the visit starts at the recorded time
+    then = (now - timedelta(minutes=20)).isoformat(timespec="seconds")
+    _, r = post(f"{base}/api/locations", {"lat": s["lat"], "lon": s["lon"], "acc": 5, "t": then}, op=rahim)
+    assert r["events"][0]["kind"] == "check_in" and r["events"][0]["t"] == then
+    old = (now - timedelta(days=2)).isoformat()
+    assert post(f"{base}/api/locations", {"lat": s["lat"], "lon": s["lon"], "t": old}, op=rahim)[0] == 400
+    assert post(f"{base}/api/locations", {"lat": s["lat"], "lon": s["lon"], "t": "2026-11-09T10:00:00"}, op=rahim)[0] == 400
+    # a video recorded 10 h before it was sent gets a warning; one recorded in the app just now does not
+    near = f"shop_id={s['id']}&lat={s['lat']}&lon={s['lon']}&acc=5"
+    q_old = urllib.parse.urlencode({"captured": (now - timedelta(hours=10)).isoformat()})
+    _, up = call(f"{base}/api/audits?{near}&source=file&{q_old}", b"video", "video/mp4", op=rahim)
+    meta = wait_done(base, up["id"])
+    assert meta["report"]["integrity"]["verdict"] == "review" and meta["source"] == "file"
+    assert [f["check"] for f in meta["report"]["integrity"]["flags"]] == ["recording_time"]
+    q_new = urllib.parse.urlencode({"captured": now.isoformat()})
+    _, up = call(f"{base}/api/audits?{near}&source=in_app&{q_new}", b"video", "video/webm", op=rahim)
+    meta = wait_done(base, up["id"])
+    assert meta["report"]["integrity"]["verdict"] == "ok" and meta["report"]["capture"]["source"] == "in_app"
+    assert meta["video"].endswith(".webm")
+
+
+def test_business_roles(server):
+    base, _ = server
+    _, products = call(f"{base}/api/products")
+    cup = products[0]["id"]
+    _, shops = call(f"{base}/api/shops")
+    ids = {s["name"]: s["id"] for s in shops}
+    # the reseller orders for itself, whatever shop_id it sends, at the wholesale price
+    _, res = login(base, PINS["Mirpur Wholesale Traders (reseller)"])
+    assert call(f"{base}/api/shops", op=res)[0] == 403 and call(f"{base}/api/stock", op=res)[0] == 403
+    code, o = post(f"{base}/api/orders", {"shop_id": ids["Al-Madina Store"], "items": [{"product_id": cup, "qty": 100}]}, op=res)
+    assert code == 201
+    mine = call(f"{base}/api/orders", op=res)[1]
+    assert [(x["shop"], x["total_tk"]) for x in mine] == [("Mirpur Wholesale Traders (sample)", 4000.0)]
+    assert post(f"{base}/api/orders/{o['id']}/status", {"status": "confirmed"}, op=res)[0] == 403
+    assert post(f"{base}/api/orders/{o['id']}/status", {"status": "confirmed"})[0] == 200
+    # the office dispatches to Rahim; Rahim delivers (recorded as Rahim) and sees his motorcycle stock
+    _, staff = call(f"{base}/api/staff")
+    rahim_id = next(s["id"] for s in staff if s["name"] == "Rahim Uddin")
+    assert post(f"{base}/api/dispatches", {"staff_id": rahim_id, "items": [{"product_id": cup, "qty": 150}]})[0] == 201
+    _, rider = login(base, PINS["Rahim Uddin"])
+    assert [x["id"] for x in call(f"{base}/api/orders", op=rider)[1]] == [o["id"]]          # confirmed: to be delivered
+    code, _ = post(f"{base}/api/deliveries", {"shop_id": ids["Mirpur Wholesale Traders (sample)"], "order_id": o["id"], "staff_id": 999,
+                                              "items": [{"product_id": cup, "delivered": 100}]}, op=rider)
+    assert code == 201
+    assert call(f"{base}/api/deliveries", op=rider)[1][0]["staff"] == "Rahim Uddin"
+    assert call(f"{base}/api/my-stock", op=rider)[1]["items"][0]["on_bike"] == 50
+    assert call(f"{base}/api/orders", op=res)[1][0]["status"] == "delivered"
+    assert post(f"{base}/api/dispatches", {"staff_id": rahim_id, "items": []}, op=rider)[0] == 403
+    assert post(f"{base}/api/deliveries", {"shop_id": ids["Al-Madina Store"], "items": []}, op=rider)[0] == 400
+    # a new reseller PIN from the office
+    code, r = post(f"{base}/api/customers/{ids['Mirpur Wholesale Traders (sample)']}/pin", {})
+    assert code == 201 and login(base, r["pin"])[0] == 200
+
+
 def test_wrong_pins_lock_out(server):
     base, _ = server
     wrong = next(p for p in (f"{i:06d}" for i in range(100)) if p not in PINS.values())
@@ -215,7 +279,7 @@ def test_gps_pings_make_visits_and_routes(server):
 def test_shops_and_changeable_agreement(server):
     base, _ = server
     _, shops = call(f"{base}/api/shops")
-    assert len(shops) == 6 and shops[0]["agreement"]["cups"] == 4
+    assert len(shops) == 8 and shops[0]["agreement"]["cups"] == 4
     code, r = post(f"{base}/api/shops", {"name": "New Shop", "lat": 23.81, "lon": 90.37, "area": "Mirpur 10"})
     assert code == 201
     assert post(f"{base}/api/shops/{r['id']}/agreement", {"cups": 8, "shelf": 1, "zone": "front", "by": "NutriCoco"})[0] == 201

@@ -44,6 +44,7 @@ from urllib.parse import parse_qs, urlparse
 
 import yaml
 
+from src.server.business import Business
 from src.server.db import DB, dist_m
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -61,6 +62,20 @@ VIDEO_TYPES = {"video/mp4": ".mp4", "video/quicktime": ".mov", "video/webm": ".w
 
 def now_utc():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def client_time(t):
+    """A time sent by the phone (a GPS point recorded while offline) as UTC ISO text, or None for 'now'.
+    Only the last 24 hours are accepted, and not more than 2 minutes in the future (phone clock drift)."""
+    if not t:
+        return None
+    dt = datetime.fromisoformat(str(t).replace("Z", "+00:00"))
+    if dt.tzinfo is None:
+        raise ValueError("time needs a time zone")
+    age = (datetime.now(timezone.utc) - dt).total_seconds()
+    if not -120 <= age <= 86400:
+        raise ValueError("time is too old or in the future")
+    return dt.astimezone(timezone.utc).isoformat(timespec="seconds")
 
 
 def slug(text, n=30):
@@ -84,6 +99,7 @@ class Store:
         db_path = Path(db_path or ROOT / cfg["server"]["database"])
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self.db = DB(db_path, cfg["tracking"])
+        self.biz = Business(self.db, cfg["business"])
         self.run_audit = run_audit or self._run_pipeline
         self.jobs = queue.Queue()
         self.lock = threading.Lock()
@@ -158,6 +174,7 @@ class Store:
                 "shop": shop, "rep": (who or {}).get("name") or qs.get("rep", [""])[0],
                 "staff_id": (who or {}).get("staff_id"), "shop_id": int(num(qs, "shop_id")) if num(qs, "shop_id") else None,
                 "captured_utc": qs.get("captured", [""])[0],
+                "source": "in_app" if qs.get("source", [""])[0] == "in_app" else "file",
                 "gps": {"lat": num(qs, "lat"), "lon": num(qs, "lon"), "accuracy_m": num(qs, "acc")}}
         self.write_meta(meta)
         self.jobs.put(uid)
@@ -177,8 +194,13 @@ class Store:
             try:
                 report = self.run_audit(self.uploads / meta["video"])
                 # the capture details from the phone go into the report, next to the pipeline's own checks
-                report["capture"] = {k: meta.get(k) for k in ("shop", "shop_id", "rep", "captured_utc", "received_utc", "gps")}
+                report["capture"] = {k: meta.get(k) for k in ("shop", "shop_id", "rep", "captured_utc", "received_utc",
+                                                              "source", "gps")}
                 self.location_check(report, meta)
+                self.age_check(report, meta)
+                flags = report["integrity"]["flags"]
+                report["integrity"]["verdict"] = ("re-audit" if any(f["severity"] == "critical" for f in flags)
+                                                  else "review" if flags else "ok")
                 out = self.reports / Path(meta["video"]).stem / "audit.json"
                 out.parent.mkdir(parents=True, exist_ok=True)
                 out.write_text(json.dumps(report, indent=1), encoding="utf-8")
@@ -204,8 +226,19 @@ class Store:
                               "detail": f"filmed {d / 1000:.1f} km from {shop['name']}: probably another place"})
             elif d > t["video_max_distance_m"]:
                 flags.append({"check": "location", "severity": "warning", "detail": f"filmed {d} m from {shop['name']}"})
-        report["integrity"]["verdict"] = ("re-audit" if any(f["severity"] == "critical" for f in flags)
-                                          else "review" if flags else "ok")
+
+    def age_check(self, report, meta):
+        """A video chosen from the phone's files may be old: warn when it was recorded long before it was sent.
+        (Videos recorded live in the app are sent right away, or queued with their recording time.)"""
+        try:
+            captured = datetime.fromisoformat(meta["captured_utc"].replace("Z", "+00:00"))
+            hours = (datetime.fromisoformat(meta["received_utc"]) - captured).total_seconds() / 3600
+        except (KeyError, ValueError, AttributeError, TypeError):
+            return
+        report["capture"]["hours_before_upload"] = round(hours, 1)
+        if hours > self.cfg["tracking"]["video_max_age_hours"]:
+            report["integrity"]["flags"].append({"check": "recording_time", "severity": "warning",
+                                                 "detail": f"recorded {hours:.0f} h before it was sent"})
 
     def report(self, uid):
         meta = self.read_meta(uid)
@@ -236,11 +269,25 @@ class Store:
         pins = {"NutriCoco office": self.db.new_pin("office")}
         for name in ("Rahim Uddin", "Jamal Hossain", "Tania Akter", "Sumon Mia"):
             pins[name] = self.db.new_pin("staff", self.db.add_staff(name))
+        self.seed_business(pins)
         return pins
+
+    def seed_business(self, pins):
+        """Sample products, a Pandamart outlet and a reseller with a PIN (prices are placeholders, marked sample)."""
+        if self.biz.products(all_=True):
+            return
+        self.biz.add_product("Coco Fresh Coconut Pudding 150 g", "cup", 40, 50, 45, sample=True)
+        self.biz.add_product("Coco Fresh carton (24 cups)", "box", 900, None, 1050, sample=True)
+        self.db.add_shop("Pandamart Mirpur (sample)", 23.8102, 90.3700, "Mirpur 10", "pandamart", sample=True)
+        reseller = self.db.add_shop("Mirpur Wholesale Traders (sample)", 23.8150, 90.3620, "Mirpur 11", "reseller", sample=True)
+        pins["Mirpur Wholesale Traders (reseller)"] = self.db.new_pin("reseller", shop_id=reseller)
 
 
 def make_handler(store, site=SITE):
     class Handler(SimpleHTTPRequestHandler):
+        extensions_map = {**SimpleHTTPRequestHandler.extensions_map, ".webmanifest": "application/manifest+json",
+                          ".js": "text/javascript"}
+
         def __init__(self, *a, **kw):
             super().__init__(*a, directory=str(site), **kw)
 
@@ -270,13 +317,18 @@ def make_handler(store, site=SITE):
             return self.headers.get("CF-Connecting-IP") or self.client_address[0]
 
         def allowed(self, method, path, who):
-            """Office: everything. Staff: their own GPS, uploads, audits and questions, and the shop list."""
+            """Office: everything. Staff: their own GPS, uploads, audits, questions and deliveries, the shop list,
+            products, open orders/POs and their own motorcycle stock. Resellers: products and their own orders."""
             if who is None:
                 return False
             if who["role"] == "office":
                 return True
+            if who["role"] == "reseller":
+                return (method, path) in {("GET", "/api/products"), ("GET", "/api/orders"), ("POST", "/api/orders")}
             return ((method, path) in {("GET", "/api/shops"), ("POST", "/api/locations"), ("POST", "/api/audits"),
-                                       ("GET", "/api/audits"), ("POST", "/api/ask")}
+                                       ("GET", "/api/audits"), ("POST", "/api/ask"), ("GET", "/api/products"),
+                                       ("GET", "/api/deliveries"), ("POST", "/api/deliveries"), ("GET", "/api/orders"),
+                                       ("GET", "/api/pos"), ("GET", "/api/my-stock")}
                     or (method == "GET" and (path.startswith("/api/audits/") or path.startswith("/reports/"))))
 
         def deny(self, who):
@@ -379,6 +431,28 @@ def make_handler(store, site=SITE):
                 return self.send_json({"fuel": db.fuel()})
             if url.path == "/api/shares":
                 return self.send_json(db.shares())
+            biz, role = store.biz, who["role"] if url.path.startswith("/api/") else None
+            if url.path == "/api/products":
+                return self.send_json(biz.products(all_=role == "office" and qs.get("all") == "1"))
+            if url.path == "/api/dispatches":
+                return self.send_json(biz.dispatches(qs.get("day")))
+            if url.path == "/api/deliveries":
+                staff = who["staff_id"] if role == "staff" else (int(qs["staff_id"]) if qs.get("staff_id") else None)
+                return self.send_json(biz.deliveries(qs.get("day"), int(qs["shop_id"]) if qs.get("shop_id") else None, staff))
+            if url.path == "/api/pos":
+                return self.send_json(biz.pos("open" if role == "staff" else qs.get("status")))
+            if url.path == "/api/orders":
+                if role == "reseller":
+                    return self.send_json(biz.orders(who["shop_id"]))
+                rows = biz.orders(status=qs.get("status"))
+                return self.send_json([o for o in rows if o["status"] in ("confirmed", "dispatched")] if role == "staff" else rows)
+            if url.path == "/api/stock":
+                return self.send_json(biz.stock(qs.get("day")))
+            if url.path == "/api/my-stock":
+                mine = [r for r in biz.stock()["riders"] if r["staff_id"] == who["staff_id"]]
+                return self.send_json(mine[0] if mine else {"items": []})
+            if url.path == "/api/restock":
+                return self.send_json(biz.restock())
             if url.path.startswith("/api/"):
                 return self.send_json({"error": "not found"}, 404)
             return super().do_GET()
@@ -411,7 +485,7 @@ def make_handler(store, site=SITE):
                     if who["role"] != "staff" and "staff_id" not in d:
                         raise ValueError("tracking is for riders: log in with a rider's PIN")
                     staff_id = who["staff_id"] if who["role"] == "staff" else int(d["staff_id"])
-                    return self.send_json({"ok": True, "events": db.ping(staff_id, lat, lon, acc)})
+                    return self.send_json({"ok": True, "events": db.ping(staff_id, lat, lon, acc, client_time(d.get("t")))})
                 if url.path == "/api/shops":
                     d = self.read_json()
                     sid = db.add_shop(str(d["name"])[:100], float(d["lat"]), float(d["lon"]), str(d.get("area", ""))[:60],
@@ -435,6 +509,50 @@ def make_handler(store, site=SITE):
                 if url.path == "/api/shares/end":
                     db.end_share(str(self.read_json().get("token", "")))
                     return self.send_json({"ok": True})
+                biz, by = store.biz, who["name"]
+                text = lambda d, k, n=300: str(d.get(k) or "")[:n]  # noqa: E731
+                if url.path == "/api/products":
+                    d = self.read_json()
+                    prices = {k: float(d[k]) if d.get(k) not in (None, "") else None for k in ("price_wholesale", "price_retail", "price_pandamart")}
+                    return self.send_json({"id": biz.add_product(text(d, "name", 100), text(d, "unit", 20) or "cup", **prices)}, 201)
+                m = re.fullmatch(r"/api/products/(\d+)", url.path)
+                if m:
+                    d = self.read_json()
+                    fields = {k: (float(v) if k.startswith("price") and v not in (None, "") else None if k.startswith("price") else v)
+                              for k, v in d.items() if k in ("name", "unit", "price_wholesale", "price_retail", "price_pandamart", "active")}
+                    biz.update_product(int(m.group(1)), **fields)
+                    return self.send_json({"ok": True})
+                if url.path == "/api/production":
+                    d = self.read_json()
+                    return self.send_json({"id": biz.add_production(int(d["product_id"]), int(d["qty"]), text(d, "note"), by)}, 201)
+                if url.path == "/api/dispatches":
+                    d = self.read_json()
+                    return self.send_json({"id": biz.add_dispatch(int(d["staff_id"]), d.get("items"), text(d, "note"), by)}, 201)
+                if url.path == "/api/deliveries":
+                    d = self.read_json()
+                    staff = who["staff_id"] if who["role"] == "staff" else (int(d["staff_id"]) if d.get("staff_id") else None)
+                    did = biz.add_delivery(int(d["shop_id"]), d.get("items"), staff, int(d["po_id"]) if d.get("po_id") else None,
+                                           int(d["order_id"]) if d.get("order_id") else None, text(d, "note"))
+                    return self.send_json({"id": did}, 201)
+                if url.path == "/api/pos":
+                    d = self.read_json()
+                    return self.send_json({"id": biz.add_po(text(d, "number", 40), int(d["shop_id"]), d.get("items"), d.get("po_date") or None,
+                                                            d.get("due_date") or None, text(d, "note"), by)}, 201)
+                m = re.fullmatch(r"/api/pos/(\d+)/status", url.path)
+                if m:
+                    biz.close_po(int(m.group(1)), str(self.read_json().get("status", "closed")))
+                    return self.send_json({"ok": True})
+                if url.path == "/api/orders":
+                    d = self.read_json()
+                    shop = who["shop_id"] if who["role"] == "reseller" else int(d["shop_id"])
+                    return self.send_json({"id": biz.add_order(shop, d.get("items"), d.get("wanted_date") or None, text(d, "note"), by)}, 201)
+                m = re.fullmatch(r"/api/orders/(\d+)/status", url.path)
+                if m:
+                    biz.set_order_status(int(m.group(1)), str(self.read_json().get("status")))
+                    return self.send_json({"ok": True})
+                m = re.fullmatch(r"/api/customers/(\d+)/pin", url.path)
+                if m:  # a new reseller PIN, shown once to the office
+                    return self.send_json({"pin": db.new_pin("reseller", shop_id=int(m.group(1)))}, 201)
                 if url.path == "/api/ask":
                     d = self.read_json()
                     meta = store.read_meta(str(d.get("id", "")))
@@ -484,6 +602,12 @@ def main():
             print("Added sample shops and staff. " + text + "Saved in data/demo_pins.txt")
         else:
             print("Database already has shops: nothing added.")
+    new = {}
+    if store.db.shops() and not store.biz.products(all_=True):  # a demo database from before the business records
+        store.seed_business(new)
+        with open(ROOT / "data" / "demo_pins.txt", "a", encoding="utf-8") as f:
+            f.writelines(f"{k}: {v}\n" for k, v in new.items())
+        print("Added sample products, a Pandamart outlet and a reseller; reseller PIN saved in data/demo_pins.txt")
     server = ThreadingHTTPServer(("0.0.0.0", port), make_handler(store))
     print(f"ShelfSense server: http://localhost:{port}  (phones on the same Wi-Fi: http://<this PC's IPv4>:{port})")
     print(f"Uploads -> {UPLOADS}, reports -> {REPORTS}. Ctrl+C to stop.")

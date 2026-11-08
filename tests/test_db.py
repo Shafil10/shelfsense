@@ -87,7 +87,9 @@ def test_pins_are_hashed_unique_and_replaceable(db):
     office = db.new_pin("office")
     first = db.new_pin("staff", db.rahim)
     assert len(first) == 6 and first.isdigit() and first != office
-    assert db.check_pin(first) == {"role": "staff", "staff_id": db.rahim, "name": "Rahim"}
+    assert db.check_pin(first) == {"role": "staff", "staff_id": db.rahim, "shop_id": None, "name": "Rahim"}
+    reseller = db.new_pin("reseller", shop_id=db.b)
+    assert db.check_pin(reseller) == {"role": "reseller", "staff_id": None, "shop_id": db.b, "name": "Al-Madina Store"}
     assert db.check_pin(office)["role"] == "office"
     assert all(first not in str(r) for r in db.q("SELECT * FROM access"))   # only hashes are stored
     second = db.new_pin("staff", db.rahim)                                   # a new PIN replaces the old one

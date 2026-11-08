@@ -50,11 +50,13 @@ def main():
     ap.add_argument("--height", type=int, default=900)
     ap.add_argument("--mobile", action="store_true", help="phone emulation (390 px wide)")
     ap.add_argument("--wait", type=float, default=2.5, help="seconds to wait after each step")
+    ap.add_argument("--fake-camera", action="store_true", help="Edge's test-pattern camera, allowed without asking")
     args = ap.parse_args()
     port = 9333
+    extra = ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] if args.fake_camera else []
     edge = subprocess.Popen([EDGE, "--headless=new", "--disable-gpu", f"--remote-debugging-port={port}",
                              r"--user-data-dir=E:\tools\edge-test\profile-cdp", r"--crash-dumps-dir=E:\tools\edge-test\dumps",
-                             "--no-first-run", "about:blank"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                             "--no-first-run", *extra, "about:blank"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
         for _ in range(50):
             try:

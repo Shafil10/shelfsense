@@ -1,0 +1,16 @@
+{
+  "name": "ShelfSense Field",
+  "short_name": "ShelfSense",
+  "description": "NutriCoco delivery and fridge check app: route tracking, automatic shop check-in, fridge video audits.",
+  "start_url": "/field/",
+  "scope": "/field/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#050A13",
+  "theme_color": "#050A13",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
