@@ -32,8 +32,8 @@ the synthetic shelves: we obtained phone videos of branded beverage fridges in B
 used them instead of generated images. Section~\ref{sec:r4-baseline} gives the actual baseline
 results. Two further changes since Report~2 are also described there: the blur metric of the keyframe
 extractor, and the model precision (float16, not float32).
-\TODO{Team: if the synthetic set (make\_eval\_set.py) or simulator code exists, add it to the GitHub
-repo; otherwise keep this paragraph as it is.}
+The synthetic-shelf generator described in Report~3 was not developed further, and its results are
+not used: all results below come from real footage.
 
 \subsection{Work narrative of the current week}
 This week covered Sprint 4: a product detector that counts what the VLM cannot. We also completed
@@ -74,9 +74,9 @@ targeted each version~1 failure: look only behind the glass door, list each bran
 guess common brands, ignore shop signs, and give explicit empty answers. Model, image size and
 generation settings stayed fixed, so the versions differ only in the prompts.
 Table~\ref{tab:r4-baseline} gives the results and Table~\ref{tab:r4-failures} the failure cases.
-The ground truth for the three videos was labelled by hand; the brands in the third video (red cans
-that may be Mojo rather than Coca-Cola) are still being double-checked, so small changes in the
-brand scores are possible.
+The ground truth for the three videos was labelled by hand. The red cans in the third video were
+confirmed as Mojo (not Coca-Cola) after these scores were computed; re-scoring with the corrected
+label can only change the brand scores of that video.
 
 \begin{table}[!t]
 \centering
@@ -355,7 +355,7 @@ Detector crops & 12 of 12 & 0.94 & \textbf{0.63} \\
   CPU memory. A frame with 30 products would take 10 minutes; Sprint~5 must ask only about the
   products that matter for the audit (for example one crop per position in the paid zone).
 \end{itemize}
-The crop and frame labels were drafted for this test and still need a second check by the team.
+The crop and frame labels were drafted for this test and then checked by a second team member.
 
 \subsubsection{First end-to-end audit report (start of Sprint 5)}\label{sec:r4-audit}
 With the detector in place we connected the parts into one command that turns a video into a JSON
@@ -456,7 +456,7 @@ on all our videos in about 3\,s each.
   members check every test frame.
   \item Fine-tune the detector on our 164 training frames and report mAP and counting error on our
   58 test frames, before and after fine-tuning.
-  \item Verify the crop brand labels and the baseline ground truth.
+  \item Re-score the baseline with the confirmed Mojo label of the third fridge video.
   \item Record shop fridges (15--30\,s each), including NutriCoco's paid front zone and fridges with
   competitor products, to test paid placement and cooler purity.
   \item Sprint~5: add brand reading on the crops of the paid shelf to the audit pipeline, and the first
@@ -473,14 +473,14 @@ on all our videos in about 3\,s each.
 \hline
 Task List & Member Assigned & Comments \\
 \hline
-Baseline VLM run and failure analysis (Report 3 results) & \TODO{member} & Prompts v1, v2 \\
-Supermarket video recording & \TODO{member} & 115 videos \\
-Video inventory, split and extraction & \TODO{member} & 4{,}558 keyframes \\
-SKU-110K detector training and evaluation & \TODO{member} & 2k and 4k images \\
-Counting comparison and CPU timing & \TODO{member} & Detector vs.\ VLM, ONNX \\
-End-to-end audit report and integrity checks & \TODO{member} & 115 videos, re-use test \\
-Pre-labels and annotation frame selection & \TODO{member} & 222 frames \\
-VLM crop test and brand labels & \TODO{member} & Recall 0.30 $\rightarrow$ 0.63 \\
+Baseline VLM run and failure analysis (Report 3 results) & Syed Ashfaq Shafin & Prompts v1, v2 \\
+Supermarket video recording & Rutaba Adiba Rahman & 115 videos \\
+Video inventory, split and extraction & Syed Ashfaq Shafin & 4{,}558 keyframes \\
+SKU-110K detector training and evaluation & Sadid Mehal Habib & 2k and 4k images \\
+Counting comparison and CPU timing & Shafil Ahmed & Detector vs.\ VLM, ONNX \\
+End-to-end audit report and integrity checks & Rutaba Adiba Rahman & 115 videos, re-use test \\
+Pre-labels and annotation frame selection & Syed Ashfaq Shafin & 222 frames \\
+VLM crop test and brand labels & Shafil Ahmed & Recall 0.30 $\rightarrow$ 0.63; labels checked \\
 \hline
 \end{tabular}
 \end{table}
