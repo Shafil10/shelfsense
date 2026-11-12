@@ -43,3 +43,6 @@ data/shelfsense.db
 data/demo_pins.txt
 docs/weekly_reports/preview5.pdf
 docs/weekly_reports/figures/r5_*.png
+
+# Claude Code project notes (local only)
+CLAUDE.md
