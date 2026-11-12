@@ -7,6 +7,8 @@ pyyaml>=6.0
 tqdm>=4.66
 psutil>=5.9
 ultralytics>=8.3
+easyocr>=1.7          # brand text on product crops (src/vlm/ocr_brands.py); install with --no-deps if it
+                      # tries to replace opencv-python with opencv-python-headless
 
 # Testing
 pytest>=8.0
