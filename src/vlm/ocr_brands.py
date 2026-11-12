@@ -101,11 +101,12 @@ def read(args):
             t = time.time()
             texts = []
             # products stand upright but brand names are often printed sideways on cans and bottles
-            for rot in (None, cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_90_COUNTERCLOCKWISE):
+            # (degrees, not cv2's codes: cv2.ROTATE_90_CLOCKWISE is 0, the same as "not rotated")
+            for deg, rot in ((0, None), (90, cv2.ROTATE_90_CLOCKWISE), (270, cv2.ROTATE_90_COUNTERCLOCKWISE)):
                 im = img if rot is None else cv2.rotate(img, rot)
-                for reader in readers:
+                for script, reader in zip(("bn", "th"), readers):
                     for _, text, conf in reader.readtext(im):
-                        texts.append({"text": text, "conf": round(float(conf), 3), "rot": rot or 0})
+                        texts.append({"text": text, "conf": round(float(conf), 3), "rot": deg, "reader": script})
             rec = {"crop": p.name, "texts": texts, "seconds": round(time.time() - t, 2)}
             out.write(json.dumps(rec, ensure_ascii=False) + "\n")
             out.flush()
