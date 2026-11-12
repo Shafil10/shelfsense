@@ -34,3 +34,15 @@ def test_catalogue_file_loads_with_aliases():
     assert cat["coke"] == "coca-cola"
     assert "coco fresh" in cat.values()
     assert len(set(cat.values())) > 150
+
+
+def test_text_goes_to_the_box_that_holds_it():
+    from src.vlm.ocr_brands import assign_texts
+    boxes = {"left": (0, 0, 100, 200), "right": (100, 0, 200, 200)}
+    texts = [{"text": "Sprite", "box": [10, 50, 90, 70]},       # inside left
+             {"text": "Fanta", "box": [120, 50, 190, 70]},      # inside right
+             {"text": "mostly right", "box": [80, 10, 180, 20]},  # 80 % in right
+             {"text": "price", "box": [0, 250, 50, 270]}]       # below both boxes: nobody's
+    got = assign_texts(texts, boxes)
+    assert [t["text"] for t in got["left"]] == ["Sprite"]
+    assert [t["text"] for t in got["right"]] == ["Fanta", "mostly right"]

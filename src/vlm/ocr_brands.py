@@ -8,6 +8,8 @@ brand is worse than no answer (precision over recall).
 Steps:
   read   EasyOCR (English + Bengali, and English + Thai: imported juices use Thai script) on every crop
          in data/crops/ -> data/results/crop_ocr.jsonl (cached; models in E:/tools/easyocr)
+  frames OCR once per whole keyframe instead, each text given to the product box it lies in
+         (--scale 2 enlarges the frame first) -> data/results/crop_ocr_frames_x<scale>.jsonl
   score  OCR alone, VLM alone and both combined, every answer snapped to the catalogue, against
          data/annotations/crop_ground_truth.csv -> data/results/crop_ocr_eval.json
 
@@ -113,6 +115,71 @@ def read(args):
             print(p.name, rec["seconds"], "s", " | ".join(x["text"] for x in texts if x["conf"] >= args.min_conf)[:100])
 
 
+def frame_ocr_path(scale):
+    return ROOT / "data" / "results" / f"crop_ocr_frames_x{scale:g}.jsonl"
+
+
+def assign_texts(texts, boxes, min_inside=0.5):
+    """Give each OCR text box to the product box that holds most of it (>= min_inside of its area)."""
+    out = {name: [] for name in boxes}
+    for t in texts:
+        tx1, ty1, tx2, ty2 = t["box"]
+        area = max((tx2 - tx1) * (ty2 - ty1), 1e-6)
+        best, best_frac = None, min_inside
+        for name, (x1, y1, x2, y2) in boxes.items():
+            iw = max(0.0, min(tx2, x2) - max(tx1, x1))
+            ih = max(0.0, min(ty2, y2) - max(ty1, y1))
+            frac = iw * ih / area
+            if frac >= best_frac:
+                best, best_frac = name, frac
+        if best:
+            out[best].append(t)
+    return out
+
+
+def read_frames(args):
+    """OCR once per whole keyframe (faster than once per product), then hand each text to its product box.
+
+    Writes the same per-crop records as `read` (texts per crop, frame seconds shared out), so `score
+    --source frames` compares it directly with per-crop OCR.
+    """
+    import cv2
+    import easyocr
+
+    readers = [easyocr.Reader(langs, gpu=args.gpu, model_storage_directory=str(MODEL_DIR / "model"),
+                              user_network_directory=str(MODEL_DIR / "user_network"), verbose=False)
+               for langs in (["en", "bn"], ["en", "th"])]
+    crops = list(csv.DictReader(open(CROPS / "crops.csv", encoding="utf-8")))
+    frames = sorted({c["frame"] for c in crops})
+    frame_dir = ROOT / "data" / "annotation_batch" / "test"
+    out_path = frame_ocr_path(args.scale)
+    with open(out_path, "w", encoding="utf-8") as out:
+        for frame in frames:
+            img = cv2.imread(str(frame_dir / frame))
+            if args.scale != 1:
+                img = cv2.resize(img, None, fx=args.scale, fy=args.scale, interpolation=cv2.INTER_CUBIC)
+            h, w = img.shape[:2]
+            t0 = time.time()
+            texts = []
+            for deg, rot in ((0, None), (90, cv2.ROTATE_90_CLOCKWISE)):
+                im = img if rot is None else cv2.rotate(img, rot)
+                for script, reader in zip(("bn", "th"), readers):
+                    for quad, text, conf in reader.readtext(im):
+                        xs = [p[0] for p in quad]
+                        ys = [p[1] for p in quad]
+                        if deg == 90:      # rotated (x', y') -> original (x, y) = (y', h - 1 - x')
+                            xs, ys = ys, [h - 1 - x for x in xs]
+                        texts.append({"text": text, "conf": round(float(conf), 3), "rot": deg, "reader": script,
+                                      "box": [min(xs) / args.scale, min(ys) / args.scale,
+                                              max(xs) / args.scale, max(ys) / args.scale]})
+            secs = time.time() - t0
+            mine = {c["crop"]: tuple(float(c[k]) for k in ("x1", "y1", "x2", "y2")) for c in crops if c["frame"] == frame}
+            for name, ts in assign_texts(texts, mine).items():
+                out.write(json.dumps({"crop": name, "texts": ts, "seconds": round(secs / len(mine), 2),
+                                      "frame_seconds": round(secs, 1)}, ensure_ascii=False) + "\n")
+            print(frame, f"{secs:.1f} s, {len(texts)} texts")
+
+
 def vlm_brand(answer):
     from src.vlm.evaluate import parse_answer
     parsed = parse_answer(answer)
@@ -127,7 +194,8 @@ def score(args):
     brands = set(catalogue.values())
     truth = {r["crop"]: normalize_brand(r["brand"]) for r in
              csv.DictReader(open(ROOT / "data" / "annotations" / "crop_ground_truth.csv", encoding="utf-8"))}
-    ocr = {r["crop"]: r for r in map(json.loads, OCR_OUT.read_text(encoding="utf-8").splitlines())}
+    src = OCR_OUT if args.source == "crops" else frame_ocr_path(args.scale)
+    ocr = {r["crop"]: r for r in map(json.loads, src.read_text(encoding="utf-8").splitlines())}
     vlm = {}
     if VLM_ANSWERS.exists():
         for a in map(json.loads, VLM_ANSWERS.read_text(encoding="utf-8").splitlines()):
@@ -173,12 +241,17 @@ def score(args):
         "note": "catalogue = brands expected in Bangladeshi shops incl. the imported juices seen in the test "
                 "videos; the old crop_vlm_eval catalogue held only the 24 test brands (upper bound)",
         "min_ocr_conf": args.min_conf, "cutoff": args.cutoff,
-        "mean_ocr_seconds_per_crop": round(sum(r["seconds"] for r in ocr.values()) / max(len(ocr), 1), 2),
+        "ocr_source": src.name,
+        "mean_ocr_seconds_per_crop": round(sum(r["seconds"] for r in ocr.values()) / max(len(ocr), 1), 2)
+        if args.source == "crops" else None,
+        "mean_ocr_seconds_per_frame": None if args.source == "crops" else round(
+            sum({r["frame_seconds"] for r in ocr.values()}) / len({r["frame_seconds"] for r in ocr.values()}), 1),
         "methods": {k: counts(p) for k, p in preds.items()},
     }
     out = ROOT / "data" / "results"
-    (out / "crop_ocr_eval.json").write_text(json.dumps(result, indent=2))
-    with open(out / "crop_ocr_detail.csv", "w", newline="", encoding="utf-8") as f:
+    tag = "" if args.source == "crops" else f"_frames_x{args.scale:g}"
+    (out / f"crop_ocr_eval{tag}.json").write_text(json.dumps(result, indent=2))
+    with open(out / f"crop_ocr_detail{tag}.csv", "w", newline="", encoding="utf-8") as f:
         wr = csv.DictWriter(f, fieldnames=list(detail[0]))
         wr.writeheader()
         wr.writerows(detail)
@@ -187,12 +260,14 @@ def score(args):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("step", choices=["read", "score"])
+    ap.add_argument("step", choices=["read", "frames", "score"])
+    ap.add_argument("--source", choices=["crops", "frames"], default="crops", help="score: which OCR output")
+    ap.add_argument("--scale", type=float, default=1.0, help="frames: enlarge the keyframe before OCR")
     ap.add_argument("--gpu", action="store_true", help="run OCR on the GPU (default CPU: the GPU is often training)")
     ap.add_argument("--min-conf", type=float, default=0.2, help="ignore OCR text below this confidence")
     ap.add_argument("--cutoff", type=float, default=0.8, help="minimum similarity to a catalogue spelling")
     args = ap.parse_args()
-    {"read": read, "score": score}[args.step](args)
+    {"read": read, "frames": read_frames, "score": score}[args.step](args)
 
 
 if __name__ == "__main__":
