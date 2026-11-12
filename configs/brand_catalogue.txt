@@ -1,0 +1,245 @@
+# Brand catalogue: brands an audit in a Bangladeshi shop can expect. One brand per line, lower case;
+# "alias = brand" maps another spelling to the brand. Lines starting with # are ignored.
+# Used by src/vlm/ocr_brands.py to snap OCR / VLM text to a real brand and to drop text that is not a brand.
+# Add a client's brands (and its competitors) here before a pilot.
+
+# --- client
+coco fresh
+nutricoco
+
+# --- soft drinks, water, energy
+coca-cola
+coke = coca-cola
+sprite
+fanta
+kinley
+pepsi
+7up
+mirinda
+mountain dew
+mojo
+clemon
+speed
+sting
+tiger
+big cola
+rc cola
+pran up
+royal tiger
+shezan
+dr pepper
+a&w
+canada dry
+schweppes
+mug
+sunkist
+crush
+fresh water
+mum
+aquafina
+dasani
+red bull
+monster
+xtra
+power plus
+gatorade
+powerade
+prime
+glacéau
+evian
+perrier
+san pellegrino
+
+# --- juice, tea, coffee drinks
+frutika
+frooto
+pran
+pran frooto
+ceres
+sun crush
+maaza
+slice
+tang
+tropicana
+minute maid
+real
+del monte
+rauch
+pfanner
+florida's natural
+malee
+doi kham
+chabaa
+latina
+cyprina
+amwel
+tipco
+foco
+vita coco
+thai coco
+okf
+aloe vera king
+lotte
+jinro
+lipton
+arizona
+snapple
+nestea
+stute
+teazle
+tea+
+dewlands
+dunkin
+starbucks
+nescafe
+nescafé = nescafe
+davidoff
+jacobs
+ispahani
+tetley
+seylon
+finlay
+kazi & kazi
+fresh tea
+taaza
+brooke bond
+
+# --- dairy
+milk vita
+aarong
+farm fresh
+pran milk
+igloo
+polar
+savoy
+lovello
+kwality
+nido
+dano
+diploma
+marks
+anchor
+starship
+horlicks
+boost
+ovaltine
+complan
+bournvita
+milo
+cerelac
+lactogen
+
+# --- biscuits, snacks, noodles, confectionery
+olympic
+danish
+haque
+bisk club
+cocola
+romania
+well food
+bombay sweets
+ruchi
+alooz
+mr. twist
+kurkure
+lay's
+lays = lay's
+pringles
+doritos
+cheetos
+oreo
+britannia
+parle
+mcvitie's
+digestive
+nabisco
+ritz
+kitkat
+cadbury
+dairy milk
+5star
+snickers
+mars
+twix
+bounty
+m&m's
+toblerone
+ferrero rocher
+nutella
+kinder
+maggi
+mr. noodles
+ifad
+kolson
+nissin
+indomie
+mama
+cup noodles
+kellogg's
+corn flakes
+quaker
+nestle
+nestlé = nestle
+
+# --- soap, detergent, personal care, household
+lux
+lifebuoy
+dettol
+sandalina
+keya
+meril
+aromatic
+tibet
+savlon
+dove
+pears
+camay
+cosco
+wheel
+surf excel
+rin
+chaka
+jet
+tide
+ariel
+vim
+harpic
+lizol
+pepsodent
+closeup
+colgate
+sensodyne
+glow & lovely
+fair & lovely
+pond's
+ponds = pond's
+vaseline
+nivea
+garnier
+head & shoulders
+sunsilk
+clear
+pantene
+tresemme
+parachute
+jui
+vatika
+dabur
+himalaya
+gillette
+johnson's
+whisper
+senora
+freedom
+
+# --- staples
+teer
+rupchanda
+fresh
+bashundhara
+acme
+radhuni
+pran
+aci
+aci pure
+square

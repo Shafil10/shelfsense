@@ -41,6 +41,8 @@ def main():
     ap.add_argument("--resume", action="store_true", help="continue an interrupted run from last.pt")
     ap.add_argument("--yolo-dir", help="override sku110k.yolo_dir (e.g. a larger subset)")
     ap.add_argument("--weights", help="start from these weights instead of detection.model (COCO)")
+    ap.add_argument("--cache", default="disk", choices=["disk", "none"],
+                    help="disk: decoded images saved as .npy (~3.5 MB each, fast); none: read JPEGs each epoch")
     args = ap.parse_args()
 
     full = yaml.safe_load(open(args.config, encoding="utf-8"))
@@ -66,7 +68,7 @@ def main():
         YOLO(args.weights or det["model"]).train(
             data=str(data), epochs=epochs, imgsz=cfg["img_size"], batch=cfg["batch"],
             max_det=det["max_det"], patience=cfg["patience"], seed=cfg["seed"], device=device,
-            workers=cfg["workers"], cache="disk", project=str(run_dir.parent), name=args.name,
+            workers=cfg["workers"], cache=False if args.cache == "none" else "disk", project=str(run_dir.parent), name=args.name,
             exist_ok=True)
 
     model = YOLO(run_dir / "weights" / "best.pt")
