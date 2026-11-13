@@ -88,7 +88,19 @@ def main():
         times = [float(line.split(",")[1]) for line in (run_dir / "results.csv").read_text().strip().splitlines()[1:]]
         train_minutes = round((sum(t for t, nxt in zip(times, times[1:]) if nxt < t) + times[-1]) / 60, 1)
 
-    subset = json.loads((ROOT / cfg["yolo_dir"] / "subset.json").read_text())
+    # Zoomed dataset (prepare_zoom.py): also test on close-ups of the same val photos
+    zoomval = ROOT / cfg["yolo_dir"] / "data_zoomval.yaml"
+    if zoomval.exists():
+        m = model.val(data=str(zoomval), imgsz=cfg["img_size"], batch=cfg["batch"], max_det=det["max_det"],
+                      device=device, workers=cfg["workers"], project=str(run_dir), name="val_zoom",
+                      exist_ok=True, plots=False, verbose=False)
+        evals["zoomval_imgsz{}_maxdet{}".format(cfg["img_size"], det["max_det"])] = box_metrics(m)
+        print("zoomed val:", evals["zoomval_imgsz{}_maxdet{}".format(cfg["img_size"], det["max_det"])])
+
+    info = ROOT / cfg["yolo_dir"] / "subset.json"
+    if not info.exists():
+        info = ROOT / cfg["yolo_dir"] / "zoom.json"
+    subset = json.loads(info.read_text())
     result = {
         "model": f"{args.weights or det['model'] + ' (COCO)'} fine-tuned on SKU-110K subset",
         "weights": str((run_dir / "weights" / "best.pt").relative_to(ROOT)),
